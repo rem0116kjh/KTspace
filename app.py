@@ -95,8 +95,8 @@ st.markdown(
     [data-baseweb="tab"] { color: #7c7c9e !important; min-width: 120px; }
     [data-baseweb="tab"][aria-selected="true"] { color: #00ffff !important; border-bottom: 2px solid #00ffff !important; }
     [data-testid="stSelectbox"] { color: #e0f2fe; }
-    [data-baseweb="select"] { background: rgba(20, 30, 60, 0.8) !important; }
-    [data-baseweb="select"] input { background-color: #0a0a14 !important; color: #000000 !important; font-weight: 600; }
+    [data-baseweb="select"] { background: #0a0a14 !important; border: 1px solid #7c3aed !important; border-radius: 6px !important; }
+    [data-baseweb="select"] input { background-color: transparent !important; color: #000000 !important; font-weight: 600 !important; }
     [data-baseweb="select"] input::placeholder { color: #666666 !important; opacity: 1 !important; }
     [data-baseweb="select"] input::-webkit-input-placeholder { color: #666666 !important; opacity: 1 !important; }
     [data-baseweb="select"] input::selection { color: #000000 !important; background: rgba(0, 255, 255, 0.5) !important; }

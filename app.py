@@ -97,6 +97,8 @@ st.markdown(
     [data-testid="stSelectbox"] { color: #e0f2fe; }
     [data-baseweb="select"] { background: rgba(20, 30, 60, 0.8) !important; }
     [data-baseweb="select"] input { color: #000000 !important; font-weight: 600; }
+    [data-baseweb="select"] input::placeholder { color: #333333 !important; opacity: 1 !important; }
+    [data-baseweb="select"] input::-webkit-input-placeholder { color: #333333 !important; opacity: 1 !important; }
     [data-baseweb="select"] input::selection { color: #000000 !important; background: rgba(0, 255, 255, 0.5) !important; }
     [data-baseweb="select"] input::-webkit-selection { color: #000000 !important; background: rgba(0, 255, 255, 0.5) !important; }
     [data-baseweb="select"] svg { fill: #00ffff !important; }

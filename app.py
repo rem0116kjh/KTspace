@@ -103,13 +103,13 @@ st.markdown(
     [data-baseweb="select"] input::-webkit-selection { color: #000000 !important; background: rgba(0, 255, 255, 0.5) !important; }
     [data-baseweb="select"] svg { fill: #00ffff !important; }
     [data-baseweb="menu"] { background: rgba(15, 20, 40, 0.95) !important; border: 1px solid #7c3aed !important; }
-    [data-baseweb="menu"] li { color: #e0f2fe !important; }
+    [data-baseweb="menu"] li { color: #000000 !important; }
     [data-baseweb="menu"] li::selection { color: #000000 !important; background: rgba(0, 255, 255, 0.5) !important; }
     [data-baseweb="menu"] li::-webkit-selection { color: #000000 !important; background: rgba(0, 255, 255, 0.5) !important; }
     [data-baseweb="menu"] li:hover { background: rgba(124, 58, 237, 0.3) !important; }
     [data-baseweb="menu"] li[aria-selected="true"] { color: #000000 !important; background: rgba(124, 58, 237, 0.5) !important; }
     [data-baseweb="segmented-control"] { background: rgba(20, 30, 60, 0.6) !important; border: 1px solid #7c3aed !important; border-radius: 8px; }
-    [data-baseweb="segmented-control"] button { color: #a0d9ff !important; }
+    [data-baseweb="segmented-control"] button { color: #000000 !important; font-weight: 600; }
     [data-baseweb="segmented-control"] button[aria-selected="true"] { background: rgba(124, 58, 237, 0.6) !important; color: #000000 !important; font-weight: 700; box-shadow: 0 0 10px rgba(124, 58, 237, 0.4); }
     [data-testid="stToggle"] label { color: #ffffff !important; }
     [data-testid="stSelectbox"] label { color: #ffffff !important; font-weight: 600; }

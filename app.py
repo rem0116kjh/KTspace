@@ -538,6 +538,7 @@ def animated_scene(scenario, speed_label: str, paused: bool):
                           radial-gradient(circle at 72% 31%, #8090a8 1px, transparent 1.5px),
                           radial-gradient(circle at 42% 77%, #8090a8 1px, transparent 1.5px);
         background-size: 95px 85px, 135px 110px, 165px 130px;
+        min-width: 900px;
       }}
       .guide {{ position:absolute; left:20px; top:18px; z-index:20; color:#e8e1d4; font-size:14px; }}
       .system {{ position:absolute; width:min(700px, 95%); aspect-ratio:1; left:50%; top:48%; transform:translate(-50%,-50%); }}
@@ -615,8 +616,15 @@ def animated_scene(scenario, speed_label: str, paused: bool):
           const spaceBox = space.getBoundingClientRect();
           const captionTop = caption.getBoundingClientRect().top - 12;
           const placed = [];
-          // 우선순위: 양쪽(±22), 위/아래(±35), 좌상/우상(±28), 좌하/우하(±28,+8)
-          const candidates = [[22,-35],[−22,-35],[22,35],[-22,35],[0,-40],[0,42],[28,-28],[-28,-28],[28,8],[-28,8],[35,-18],[-35,-18]];
+          // 우선순위: 오른쪽/왼쪽(±28), 위/아래(±42), 대각선, 미세 조정
+          const candidates = [
+            [32,-28],[32,28],[-32,-28],[-32,28],
+            [0,-42],[0,42],
+            [48,-14],[48,14],[-48,-14],[-48,14],
+            [22,-35],[22,35],[-22,-35],[-22,35],
+            [0,-55],[0,55],
+            [12,-20],[12,20],[-12,-20],[-12,20]
+          ];
           let collisions = 0;
           labels.forEach((label, index) => {{
             const planetBox = planets[index].getBoundingClientRect();
@@ -636,8 +644,9 @@ def animated_scene(scenario, speed_label: str, paused: bool):
             }}
             if (!accepted) {{
               collisions++;
-              label.style.left = `${{Math.max(10, Math.min(spaceBox.width - 40, centerX - 20))}}px`;
-              label.style.top = `${{Math.max(10, Math.min(captionTop - spaceBox.top - 22, centerY - 25 - index * 14))}}px`;
+              const vertOffset = (index % 2 === 0) ? -25 - Math.floor(index / 2) * 12 : 25 + Math.floor(index / 2) * 12;
+              label.style.left = `${{Math.max(spaceBox.left + 15, Math.min(spaceBox.left + spaceBox.width - 45, centerX + (index % 2 === 0 ? -35 : 35))}}px`;
+              label.style.top = `${{Math.max(spaceBox.top + 15, Math.min(captionTop - 20, centerY + vertOffset))}}px`;
               placed.push(label.getBoundingClientRect());
             }}
           }});
@@ -894,15 +903,24 @@ with right:
         unsafe_allow_html=True,
     )
     st.progress(score / 100)
-    st.latex(r"H(x)=100(1-e^{-x})")
-    st.caption(
-        "공통 환산 규칙: 온도는 |ΔT|/20 K, 지구 중력은 |ln(g/g₀)|/ln2, 외부 천체는 상대 중력·조석력, "
-        "자전은 하루 길이·유효중력 변화, 자기장은 태양풍 증가량을 x로 사용합니다. 궤도 이탈은 100점이며 여러 영향 중 최댓값을 표시합니다."
-    )
-    with st.expander("10개 시나리오 대표 조건 점수"):
-        st.dataframe(representative_score_table(), hide_index=True, width="stretch")
+    st.caption("지구에서 살 수 있는 조건이 얼마나 크게 달라지는지를 0~100으로 나타냈습니다. 100에 가까울수록 큰 변화입니다.")
+    with st.expander("점수는 어떻게 계산하나요?"):
+        st.latex(r"H(x)=100(1-e^{-x})")
+        st.caption(
+            "공통 환산 규칙: 온도는 |ΔT|/20 K, 지구 중력은 |ln(g/g₀)|/ln2, 외부 천체는 상대 중력·조석력, "
+            "자전은 하루 길이·유효중력 변화, 자기장은 태양풍 증가량을 x로 사용합니다. 궤도 이탈은 100점이며 여러 영향 중 최댓값을 표시합니다."
+        )
     for label, value, detail in scenario_metrics(scenario):
         st.metric(label, value, delta=detail, delta_color="off")
+        caption_map = {
+            "이심률": "궤도가 얼마나 찌그러졌는지. 0이면 동그라미, 1이면 탈출",
+            "사건지평선": "이 안으로 들어가면 빛도 빠져나오지 못하는 경계",
+            "상대 조석력": "물체를 양쪽으로 잡아 늘이는 힘",
+            "원일점": "태양에서 가장 멀어지는 지점",
+            "궤도 상태": "지구가 태양 주위를 계속 도는지, 벗어나는지",
+        }
+        if label in caption_map:
+            st.caption(caption_map[label])
     if scenario["type"] == ScenarioType.SUN_MASS.value:
         with st.expander("비교 모델 A: 질량이 천천히 변한다면"):
             ratio = scenario["orbit_model_a"]["period_ratio"]
@@ -914,6 +932,9 @@ st.subheader("모델 검증")
 validation = validation_table()
 st.markdown(validation.to_html(index=False, classes="validation-table", border=0), unsafe_allow_html=True)
 st.success("5개 기준을 모두 재현하며, 이심률은 원궤도 가정에 따른 의도된 차이입니다.")
+
+st.subheader("10개 시나리오 대표 조건 점수")
+st.dataframe(representative_score_table(), hide_index=True, use_container_width=True)
 
 st.divider()
 explain_tab, note_tab, calculation_tab = st.tabs(["쉬운 해설", "과학적 가정", "계산 과정"])

@@ -120,7 +120,7 @@ class TestSimulationEngine:
             distance_au=1, mass_solar=2.02, luminosity_solar=25.4
         )
         assert result['results']['radiation_ratio_to_earth'] == pytest.approx(25.4)
-        expected_kelvin = 288 * (25.4 ** 0.25)
+        expected_kelvin = 288 * ((1 + 25.4) ** 0.25)
         assert result['results']['estimated_earth_temp_k'] == pytest.approx(expected_kelvin)
 
     @pytest.mark.parametrize('invalid_change', [-100, -101, float('nan')])

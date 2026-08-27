@@ -730,21 +730,21 @@ def fallback_interpretation(scenario: Dict[str, Any]) -> str:
         return (
             f"태양 질량의 {assumptions.get('mass_solar', 10):g}배인 블랙홀이 "
             f"{assumptions.get('distance_au', 1):g} AU 거리에 갑자기 나타나는 가상 상황입니다. "
-            f"이 위치에서 중력과 조석력은 태양 1 AU 기준 각각 약 "
-            f"{results.get('gravity_ratio_to_sun_at_1au', 10):.1f}배와 "
-            f"{results.get('tidal_ratio_to_sun_at_1au', 10):.1f}배입니다. "
-            "지구가 그 자리에서 즉시 찢어진다기보다 기존 태양계 궤도와 중력 균형이 "
-            "심각하게 무너지는 것이 핵심 위험입니다."
+            f"이 위치에서 잡아당기는 힘은 태양 1 AU 기준 약 "
+            f"{results.get('gravity_ratio_to_sun_at_1au', 10):.1f}배이고, "
+            f"지구를 늘어뜨리는 힘은 약 {results.get('tidal_ratio_to_sun_at_1au', 10):.1f}배입니다. "
+            "지구가 즉시 찢어진다기보다 태양계의 궤도와 중력 균형이 "
+            "심각하게 무너져 생명이 살 수 없게 되는 것이 가장 큰 위험입니다."
         )
 
     if s_type == ScenarioType.SIRIUS.value:
         results = scenario.get("results", {})
         return (
-            f"시리우스 A가 1 AU 거리에 나타나면 지구가 받는 복사 에너지는 현재의 약 "
+            f"시리우스 A가 1 AU 거리에 나타나면 지구가 받는 열은 현재의 약 "
             f"{results.get('radiation_ratio_to_earth', 25.4):.1f}배가 됩니다. "
             f"대기와 해양을 생략한 단순 모델의 추정 온도는 약 "
             f"{results.get('estimated_earth_temp_c', 375):.0f}°C입니다. "
-            "극심한 가열과 두 별의 중력이 만드는 궤도 불안정이 핵심 위험입니다."
+            "극심한 가열과 두 별의 잡아당기는 힘이 지구 궤도를 흔들어 생명이 살 수 없게 되는 것이 핵심 위험입니다."
         )
 
     if s_type == ScenarioType.EARTH_DISTANCE.value:
@@ -766,9 +766,9 @@ def fallback_interpretation(scenario: Dict[str, Any]) -> str:
             g_eff = results.get("effective_gravity_ms2", 0)
             t_crit = 2.0 * np.pi * np.sqrt(6.371e6 / 9.81) / 3600.0  # 시간 단위
             return (
-                f"하루가 {hours:.1f}시간이면 적도에서 원심력이 중력을 초과합니다. "
-                f"유효중력이 {g_eff:.2f} m/s²(음수)가 되어 지구는 구형을 유지할 수 없습니다. "
-                f"임계값({t_crit:.3f}시간)보다 짧으므로 생명 존재 불가능합니다."
+                f"하루가 {hours:.1f}시간이면 회전이 너무 빨라서 밖으로 튕겨나가는 힘이 중력을 이기게 됩니다. "
+                f"무거워지는 힘이 사라져 지구는 동그란 모양을 유지할 수 없습니다. "
+                f"약 {t_crit:.3f}시간보다 짧으면 생명이 살 수 없습니다."
             )
         else:
             return (
@@ -781,9 +781,9 @@ def fallback_interpretation(scenario: Dict[str, Any]) -> str:
         results = scenario.get("results", {})
         change = scenario.get("percent_change", 0)
         return (
-            f"태양 광도가 {change:+.1f}% 변하면 지구가 받는 에너지가 변합니다. "
+            f"태양이 {change:+.1f}% 더 밝아지면 지구가 받는 열의 양이 변합니다. "
             f"추정 온도는 약 {results.get('estimated_earth_temp_c', 15):.0f}°C입니다. "
-            "광도의 작은 변화도 복사 평형에 큰 영향을 주어 기후를 급변시킬 수 있습니다."
+            "태양 밝기의 작은 변화도 지구가 받는 열의 균형을 깨뜨려 기후를 급변시킬 수 있습니다."
         )
 
     if s_type == ScenarioType.EARTH_ALBEDO.value:
@@ -791,9 +791,9 @@ def fallback_interpretation(scenario: Dict[str, Any]) -> str:
         change = scenario.get("albedo_change_pct", 0)
         direction = "증가" if change > 0 else "감소"
         return (
-            f"지표 반사율이 {abs(change):.1f}% {direction}하면 흡수되는 에너지가 변합니다. "
+            f"지표가 햇빛을 반사하는 양이 {abs(change):.1f}% {direction}하면 지구가 흡수하는 열의 양이 변합니다. "
             f"추정 온도는 약 {results.get('estimated_earth_temp_c', 15):.0f}°C입니다. "
-            "빙하기와 온실 지구의 차이도 반사율 변화로 설명됩니다."
+            "얼음이 많아지면(반사율 ↑) 춥고, 얼음이 녹으면(반사율 ↓) 더워지는 이유도 이것입니다."
         )
 
     if s_type == ScenarioType.ATMOSPHERE_LOSS.value:
@@ -802,21 +802,21 @@ def fallback_interpretation(scenario: Dict[str, Any]) -> str:
 
         if pct >= 90:
             return (
-                f"대기가 {pct:.0f}% 남으면 현재 지구와 비슷하게 온실효과가 유지됩니다. "
+                f"대기가 {pct:.0f}% 남으면 현재 지구처럼 대기가 열을 잡아줍니다. "
                 f"온도는 약 {results.get('estimated_earth_temp_c', 15):.0f}°C로 정상 범위입니다. "
                 "생명이 번성할 수 있는 환경이 유지됩니다."
             )
         elif pct >= 30:
             return (
-                f"대기가 {pct:.0f}% 남으면 온실효과가 약화되어 우주선 노출이 증가합니다. "
+                f"대기가 {pct:.0f}% 남으면 대기가 열을 잡아주는 능력이 약해져 우주의 나쁜 방사선이 더 들어옵니다. "
                 f"온도는 약 {results.get('estimated_earth_temp_c', 15):.0f}°C로 감소합니다. "
-                "생명에 자외선 스트레스가 증가합니다."
+                "생명이 자외선 피해를 더 많이 입게 됩니다."
             )
         else:  # pct < 30
             return (
-                f"대기가 {pct:.0f}% 남으면 온실효과가 거의 사라지고 우주선이 직접 투과합니다. "
+                f"대기가 {pct:.0f}% 남으면 대기가 거의 없어져 우주의 나쁜 방사선이 그대로 들어옵니다. "
                 f"온도는 약 {results.get('estimated_earth_temp_c', 15):.0f}°C로 급락합니다. "
-                "화성처럼 얇은 대기를 가지게 되어 생명 환경이 급격히 악화됩니다."
+                "화성처럼 얇은 대기가 되어 생명이 살 수 없는 환경이 됩니다."
             )
 
     if s_type == ScenarioType.MAGNETIC_FIELD.value:
@@ -825,25 +825,25 @@ def fallback_interpretation(scenario: Dict[str, Any]) -> str:
         solar_wind_inc = results.get('solar_wind_increase', 0)
 
         if pct >= 90:
-            subtitle = "정상적인 자기장이 태양풍을 차단하고 있습니다"
+            subtitle = "지구의 자기장이 우주의 위험한 에너지를 잘 막고 있어요"
             explanation = (
-                f"자기장이 {pct:.0f}% 강도면 태양풍 차단이 효과적이므로 대기 손실이 최소입니다. "
-                f"태양풍 영향은 {solar_wind_inc:+.1f}배에 불과합니다. "
-                "지구의 대기와 생명이 우주 방사선으로부터 보호됩니다."
+                f"자기장이 {pct:.0f}% 강도면 태양에서 오는 위험한 에너지를 잘 막아줍니다. "
+                f"위험한 에너지의 영향은 {solar_wind_inc:+.1f}배 정도입니다. "
+                "지구의 공기와 생명이 우주의 나쁜 방사선으로부터 보호받습니다."
             )
         elif pct >= 50:
-            subtitle = "약화된 자기장이 부분적으로만 보호합니다"
+            subtitle = "자기장이 약해져서 우주의 위험한 에너지가 더 들어와요"
             explanation = (
-                f"자기장이 {pct:.0f}% 강도면 태양풍 차단이 약해져 대기 손실이 증가합니다. "
-                f"태양풍 영향은 {solar_wind_inc:+.1f}배 증가합니다. "
-                "우주선 노출도 증가하여 생명에 스트레스를 줍니다."
+                f"자기장이 {pct:.0f}% 강도면 태양풍을 완벽하게 막지 못해 더 많은 위험한 에너지가 들어옵니다. "
+                f"위험한 에너지의 영향은 {solar_wind_inc:+.1f}배 증가합니다. "
+                "우주의 나쁜 방사선이 더 많이 들어와 생명이 스트레스를 받게 됩니다."
             )
         else:  # pct < 50
-            subtitle = "거의 없는 자기장은 태양풍을 막지 못합니다"
+            subtitle = "자기장이 거의 없어서 우주의 위험한 에너지가 그대로 들어와요"
             explanation = (
-                f"자기장이 {pct:.0f}% 강도면 태양풍 차단이 거의 불가능하고 대기 손실이 급속합니다. "
-                f"태양풍 영향은 {solar_wind_inc:+.1f}배 증가합니다. "
-                "행성의 대기가 우주로 빠져나가 생명 환경이 급격히 악화됩니다."
+                f"자기장이 {pct:.0f}% 강도면 태양풍을 거의 막지 못해 위험한 에너지가 계속 들어옵니다. "
+                f"위험한 에너지의 영향은 {solar_wind_inc:+.1f}배 증가합니다. "
+                "지구의 공기가 우주로 날아가면서 생명이 살 수 없는 환경이 되어갑니다."
             )
 
         return f"{subtitle}\n\n{explanation}"

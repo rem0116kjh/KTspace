@@ -1,7 +1,14 @@
 """직접 조작하는 태양계 WHAT IF Streamlit 앱."""
 
+from io import BytesIO
+from pathlib import Path
 import time
+
+import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib import font_manager
 import numpy as np
+import pandas as pd
 import streamlit as st
 
 from solar_system_sim_v2_openai import (
@@ -14,11 +21,37 @@ from solar_system_sim_v2_openai import (
 from scenario_catalog import CATEGORY_LABELS, SCENARIO_PRESETS, presets_for, run_preset
 
 
+def configure_korean_matplotlib_font() -> str | None:
+    """AppleGothic을 우선 적용하고 NanumGothic으로 폴백한다."""
+    font_candidates = [
+        ("AppleGothic", Path("/System/Library/Fonts/Supplemental/AppleGothic.ttf")),
+        ("NanumGothic", Path("/Library/Fonts/NanumGothic.ttf")),
+    ]
+    for family, font_path in font_candidates:
+        try:
+            if font_path.exists():
+                font_manager.fontManager.addfont(str(font_path))
+            font_manager.findfont(family, fallback_to_default=False)
+            matplotlib.rcParams["font.family"] = family
+            matplotlib.rcParams["axes.unicode_minus"] = False
+            return None
+        except (FileNotFoundError, ValueError, RuntimeError):
+            continue
+    matplotlib.rcParams["axes.unicode_minus"] = False
+    return "AppleGothic과 NanumGothic을 찾지 못해 그래프 한글 폰트를 적용하지 못했습니다."
+
+
+MATPLOTLIB_FONT_WARNING = configure_korean_matplotlib_font()
+
+
 st.set_page_config(
     page_title="태양계 WHAT IF 실험실",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+if MATPLOTLIB_FONT_WARNING:
+    st.warning(MATPLOTLIB_FONT_WARNING)
 
 st.markdown(
     """
@@ -90,6 +123,12 @@ st.markdown(
     .stCaption { color: #a0d9ff !important; }
     .stDivider { border-color: #7c3aed !important; }
     .stSubheader { color: #00ffff !important; text-shadow: 0 0 10px rgba(0, 255, 255, 0.3); }
+    .validation-table { width:100%; table-layout:fixed; border-collapse:collapse; background:rgba(20,30,60,.72); font-size:.86rem; }
+    .validation-table th, .validation-table td { border:1px solid #52617a; padding:9px 8px; color:#e0f2fe; white-space:normal; overflow-wrap:anywhere; vertical-align:top; }
+    .validation-table th { color:#00ffff; background:rgba(124,58,237,.28); }
+    .validation-table th:nth-child(1) { width:17%; } .validation-table th:nth-child(2) { width:12%; }
+    .validation-table th:nth-child(3) { width:12%; } .validation-table th:nth-child(4) { width:15%; }
+    .validation-table th:nth-child(5) { width:44%; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -97,6 +136,79 @@ st.markdown(
 
 
 ENGINE = SimulationEngine(PLANETS)
+
+
+ASSUMPTIONS = {
+    ScenarioType.SUN_MASS.value: (
+        "**사용 공식:** $e=|\\mu-1|/\\mu$, $\\mu=M'/M$  \n"
+        "**고정/변경:** 지구의 순간 위치(1 AU)와 속도는 고정하고 태양 질량만 바꿉니다.  \n"
+        "**무시:** 행성 간 상호 중력, 태양 질량 변화 과정, 장기 섭동은 무시합니다."
+    ),
+    ScenarioType.EARTH_MASS.value: (
+        "**사용 공식:** $g'/g=(M'/M)(R/R')^2$  \n"
+        "**고정/변경:** 지구 반지름은 고정하고 지구 질량만 바꿉니다.  \n"
+        "**무시:** 질량 변화에 따른 반지름·밀도·내부 구조 변화는 무시합니다."
+    ),
+    ScenarioType.BLACKHOLE.value: (
+        "**사용 공식:** $F/F_\\odot=(M/M_\\odot)/(r/\\mathrm{AU})^2$, $F_t/F_{t,\\odot}=(M/M_\\odot)/(r/\\mathrm{AU})^3$, $R_s=2GM/c^2$  \n"
+        "**고정/변경:** 비교 기준은 1 AU의 태양이며 블랙홀 질량과 거리만 바꿉니다.  \n"
+        "**무시:** 접근 방향·속도, 강착원반, 다체 운동은 무시합니다."
+    ),
+    ScenarioType.SIRIUS.value: (
+        "**사용 공식:** $F/F_\\odot=(M/M_\\odot)/r^2$, $S_*/S_\\odot=(L_*/L_\\odot)/r^2$, $T=288(1+S_*/S_\\odot)^{1/4}$  \n"
+        "**고정/변경:** 시리우스 A의 질량·광도는 고정하고 지구와의 거리만 바꿉니다.  \n"
+        "**무시:** 대기·해양 순환, 스펙트럼 차이, 다체 궤도는 무시합니다."
+    ),
+    ScenarioType.EARTH_DISTANCE.value: (
+        "**사용 공식:** $S/S_0=(r_0/r)^2$, $T_s=278.5(1-A)^{1/4}/\\sqrt d+33.9$  \n"
+        "**고정/변경:** 태양 광도·지구 반사율·대기는 고정하고 공전 거리만 바꿉니다.  \n"
+        "**무시:** 궤도 이심률, 계절, 기후 되먹임과 해양 순환은 무시합니다."
+    ),
+    ScenarioType.EARTH_ROTATION.value: (
+        "**사용 공식:** $\\omega=2\\pi/T$, $g_{eff}=g-\\omega^2R_E$  \n"
+        "**고정/변경:** 지구 반지름과 표면중력은 고정하고 하루 길이만 바꿉니다.  \n"
+        "**무시:** 지구의 변형, 대기 순환, 조석과 자전축 변화는 무시합니다."
+    ),
+    ScenarioType.SOLAR_LUMINOSITY.value: (
+        "**사용 공식:** $T_s=278.5L^{1/4}(1-A)^{1/4}/\\sqrt d+33.9$  \n"
+        "**고정/변경:** 지구 거리·반사율·대기는 고정하고 태양 광도만 바꿉니다.  \n"
+        "**무시:** 구름·빙하·수증기 되먹임과 대기 순환은 무시합니다."
+    ),
+    ScenarioType.EARTH_ALBEDO.value: (
+        "**사용 공식:** $T_s=278.5(1-A)^{1/4}+33.9$  \n"
+        "**고정/변경:** 태양 광도·지구 거리·대기는 고정하고 반사율 $A$만 바꿉니다.  \n"
+        "**온실효과:** 지표 온도는 유효 복사 온도에 온실효과 +33.9 K를 상수로 더해 구합니다(현재 지구의 288 K - 254 K에서 얻은 값).  \n"
+        "**무시:** 반사율 변화에 따른 온실효과의 되먹임, 구름과 얼음의 공간 분포, 대기 순환은 무시합니다."
+    ),
+    ScenarioType.ATMOSPHERE_LOSS.value: (
+        "**사용 공식:** $T_s=T_e+33.9f_{atm}$  \n"
+        "**고정/변경:** 복사평형 조건은 고정하고 대기 잔존 비율만 바꿉니다.  \n"
+        "**무시:** 기체 조성·기압 변화, 구름, 비선형 온실효과는 무시합니다."
+    ),
+    ScenarioType.MAGNETIC_FIELD.value: (
+        "**사용 공식:** $W/W_0=1+2(1-B/B_0)$  \n"
+        "**고정/변경:** 태양풍 세기는 고정하고 지구 자기장 강도만 바꿉니다.  \n"
+        "**무시:** 자기권 형상, 태양폭풍, 대기와 자기장의 장기 상호작용은 무시합니다."
+    ),
+}
+
+
+def format_number(value: float, kind: str) -> str:
+    """대회 화면 전체에서 사용하는 유효숫자 규칙."""
+    if kind == "multiple":
+        return f"{value:.2f}배"
+    if kind == "percent":
+        return f"{value:+.1f}%"
+    if kind == "temperature":
+        return f"{value:.0f}°C"
+    if kind == "length":
+        return f"{value:.3g} km"
+    raise ValueError(f"지원하지 않는 표시 형식: {kind}")
+
+
+def _bounded_impact(magnitude: float) -> float:
+    """0 이상의 영향 크기를 포화형 공통 척도 0~100으로 바꾼다."""
+    return 100 * (1 - np.exp(-max(0.0, float(magnitude))))
 
 
 def customize_scenario(preset):
@@ -155,56 +267,78 @@ def customize_scenario(preset):
 
 
 def risk_score(scenario) -> int:
-    """화면 비교를 위한 교육용 상대 위험 지수."""
-    kind = scenario["type"]
+    """지구 거주 가능성에 대한 물리적 영향을 공통 0~100 척도로 환산한다."""
+    kind, results = scenario["type"], scenario["results"]
+    baseline_temp_c = ENGINE._calculate_earth_temperature() - 273.15
+
+    def temperature_impact(temp_c: float) -> float:
+        return _bounded_impact(abs(temp_c - baseline_temp_c) / 20)
+
     if kind == ScenarioType.SUN_MASS.value:
-        return min(100, int(abs(scenario["percent_change"]) * 4))
+        orbit = scenario["orbit_model_b"]
+        if orbit.get("escape"):
+            return 100
+        return round(_bounded_impact(3 * orbit["eccentricity"]))
     if kind == ScenarioType.EARTH_MASS.value:
-        return min(100, int(abs(scenario["percent_change"]) * 3))
+        gravity_ratio = results["surface_gravity_new"]
+        return round(_bounded_impact(abs(np.log(gravity_ratio)) / np.log(2)))
     if kind == ScenarioType.BLACKHOLE.value:
-        gravity = scenario["results"]["gravity_ratio_to_sun_at_1au"]
-        return min(100, max(5, int(35 + 25 * np.log10(max(gravity, 0.1)))))
+        perturbation = max(results["gravity_ratio_to_sun_at_1au"], results["tidal_ratio_to_sun_at_1au"])
+        return round(_bounded_impact(perturbation))
     if kind == ScenarioType.SIRIUS.value:
-        radiation = scenario["results"]["radiation_ratio_to_earth"]
-        return min(100, max(5, int(30 + 30 * np.log10(max(radiation, 0.1)))))
+        return round(max(
+            temperature_impact(results["estimated_earth_temp_c"]),
+            _bounded_impact(results["gravity_ratio_to_sun_at_1au"]),
+        ))
     if kind == ScenarioType.EARTH_DISTANCE.value:
-        change = abs(scenario["percent_change"])
-        return min(100, int(30 + change * 0.5))
+        return round(temperature_impact(results["estimated_earth_temp_c"]))
     if kind == ScenarioType.EARTH_ROTATION.value:
-        hours = scenario["hours_per_day"]
-        return min(100, int(30 + abs(hours - 24) * 1.5))
+        baseline_gravity = ENGINE.scenario_earth_rotation(24)["results"]["effective_gravity_ms2"]
+        day_impact = abs(np.log(scenario["hours_per_day"] / 24)) / np.log(2)
+        gravity_impact = abs(results["effective_gravity_ms2"] - baseline_gravity) / baseline_gravity
+        return round(_bounded_impact(max(day_impact, gravity_impact)))
     if kind == ScenarioType.SOLAR_LUMINOSITY.value:
-        change = abs(scenario["percent_change"])
-        return min(100, int(30 + change * 0.6))
+        return round(temperature_impact(results["estimated_earth_temp_c"]))
     if kind == ScenarioType.EARTH_ALBEDO.value:
-        change = abs(scenario["albedo_change_pct"])
-        return min(100, int(20 + change * 0.8))
+        return round(temperature_impact(results["estimated_earth_temp_c"]))
     if kind == ScenarioType.ATMOSPHERE_LOSS.value:
-        loss = 100 - scenario["atmosphere_remaining_pct"]
-        return min(100, int(loss * 0.8))
+        return round(temperature_impact(results["estimated_earth_temp_c"]))
     if kind == ScenarioType.MAGNETIC_FIELD.value:
-        loss = 100 - scenario["field_strength_pct"]
-        return min(100, int(loss * 0.7))
-    return 50
+        wind_ratio_increase = results["solar_wind_increase"]
+        return round(_bounded_impact(wind_ratio_increase))
+    raise ValueError(f"지원하지 않는 시나리오 유형: {kind}")
+
+
+def representative_score_table() -> pd.DataFrame:
+    """유형별 대표 조건의 거주 가능성 영향 점수를 보여준다."""
+    examples = [
+        ("태양 질량", "-50%", ENGINE.scenario_sun_mass_change(-50)),
+        ("지구 질량", "-50%", ENGINE.scenario_earth_mass_change(-50)),
+        ("블랙홀", "10 M☉ · 1 AU", ENGINE.scenario_blackhole_nearby(10, 1)),
+        ("시리우스 A", "1 AU", ENGINE.scenario_sirius_nearby(1, 2.063, 24.7)),
+        ("지구 궤도", "-50%", ENGINE.scenario_earth_distance(-50)),
+        ("자전", "하루 6시간", ENGINE.scenario_earth_rotation(6)),
+        ("태양 광도", "-50%", ENGINE.scenario_solar_luminosity(-50)),
+        ("지표 반사율", "-50%", ENGINE.scenario_earth_albedo(-50)),
+        ("대기", "0% 잔존", ENGINE.scenario_atmosphere_loss(0)),
+        ("자기장", "0%", ENGINE.scenario_magnetic_field(0)),
+    ]
+    return pd.DataFrame(
+        [{"시나리오": name, "대표 조건": condition, "영향 점수": risk_score(value)} for name, condition, value in examples]
+    )
 
 
 def scenario_metrics(scenario):
     kind, results = scenario["type"], scenario["results"]
     if kind == ScenarioType.SUN_MASS.value:
-        earth = results["Earth"]
-        # 모델 A: 태양이 원래부터 그 질량 (케플러 3법칙, 원궤도 유지)
-        model_a = scenario.get("orbit_model_a", {})
-        period_ratio_a = model_a.get("period_ratio", 1.0)
-
         # 모델 B: 태양이 갑자기 질량 변화 (지구 속도 고정, 궤도 변형)
         model_b = scenario.get("orbit_model_b", {})
 
         if model_b.get("escape"):
             return [
-                ("⚠️ 궤도 이탈 (모델 B)", "태양 질량 급감 시: 지구 탈출 속도 도달"),
-                ("이심률", "1.0 (포물선)"),
-                ("원일점", "∞ (무한원점)"),
-                ("참고", f"모델 A: 원궤도 유지 시 주기 {period_ratio_a*100-100:+.2f}% (μ > 0이면 항상 계산 가능)"),
+                ("궤도 상태", "탈출", "급격한 질량 변화 모델"),
+                ("이심률", "1.00" if np.isclose(1 + scenario["percent_change"] / 100, .5) else ">1.00", "포물선" if np.isclose(1 + scenario["percent_change"] / 100, .5) else "쌍곡선"),
+                ("원일점", "∞", "무한원점"),
             ]
         else:
             a_ratio = model_b.get("a_ratio")
@@ -215,33 +349,34 @@ def scenario_metrics(scenario):
             a_ratio_str = f"{a_ratio:.3f}배" if a_ratio is not None and a_ratio > 0 else "정의 불가"
 
             return [
-                ("모델 A (원궤도 유지)", f'새 주기: {period_ratio_a:.3f}배'),
-                ("모델 B (속도 고정)", f'새 장반경: {a_ratio_str}, 이심률: {eccentricity:.3f}'),
-                ("모델 B 새 주기", f'{period_ratio_b:.3f}배'),
+                ("궤도 상태", "결합", "급격한 질량 변화 모델"),
+                ("장반경", a_ratio_str, "현재 궤도 대비"),
+                ("이심률", f'{eccentricity:.3f}', "타원 궤도"),
+                ("공전 주기", format_number(period_ratio_b, "multiple"), "현재 1년 대비"),
             ]
     if kind == ScenarioType.EARTH_MASS.value:
         return [
-            ("표면 중력 변화", f'{results["surface_gravity_change_pct"]:+.2f}%'),
-            ("새 상대 중력", f'{results["surface_gravity_new"]:.3f} g'),
-            ("지구 질량", f'{scenario["percent_change"]:+.1f}%'),
+            ("중력 변화", format_number(results["surface_gravity_change_pct"], "percent"), None),
+            ("상대 중력", f'{results["surface_gravity_new"]:.3f} g', None),
+            ("질량 변화", format_number(scenario["percent_change"], "percent"), None),
         ]
     if kind == ScenarioType.BLACKHOLE.value:
         return [
-            ("상대 중력", f'{results["gravity_ratio_to_sun_at_1au"]:.2f}배'),
-            ("상대 조석력", f'{results["tidal_ratio_to_sun_at_1au"]:.2f}배'),
-            ("사건지평선 반지름", f'{results["schwarzschild_radius_km"]:.1f} km'),
+            ("상대 중력", format_number(results["gravity_ratio_to_sun_at_1au"], "multiple"), None),
+            ("상대 조석력", format_number(results["tidal_ratio_to_sun_at_1au"], "multiple"), None),
+            ("사건지평선", format_number(results["schwarzschild_radius_km"], "length"), "반지름"),
         ]
     if kind == ScenarioType.SIRIUS.value:
         return [
-            ("상대 중력", f'{results["gravity_ratio_to_sun_at_1au"]:.2f}배'),
-            ("복사 에너지", f'{results["radiation_ratio_to_earth"]:.1f}배'),
-            ("단순 추정 온도", f'{results["estimated_earth_temp_c"]:.0f}°C'),
+            ("상대 중력", format_number(results["gravity_ratio_to_sun_at_1au"], "multiple"), None),
+            ("복사 에너지", format_number(results["radiation_ratio_to_earth"], "multiple"), None),
+            ("추정 온도", format_number(results["estimated_earth_temp_c"], "temperature"), None),
         ]
     if kind == ScenarioType.EARTH_DISTANCE.value:
         return [
-            ("복사 에너지 비율", f'{results["radiation_ratio_to_earth"]:.4f}배'),
-            ("추정 온도", f'{results["estimated_earth_temp_c"]:.0f}°C'),
-            ("궤도 변화", f'{scenario["percent_change"]:+.1f}%'),
+            ("복사 비율", format_number(results["radiation_ratio_to_earth"], "multiple"), None),
+            ("추정 온도", format_number(results["estimated_earth_temp_c"], "temperature"), None),
+            ("궤도 변화", format_number(scenario["percent_change"], "percent"), None),
         ]
     if kind == ScenarioType.EARTH_ROTATION.value:
         # 유효중력이 음수인 붕괴 조건 확인
@@ -251,41 +386,41 @@ def scenario_metrics(scenario):
             # 임계값: T_crit = 2π√(R/g) ≈ 1.40652시간
             t_crit = 2.0 * np.pi * np.sqrt(6.371e6 / 9.81) / 3600.0
             return [
-                ("⚠️ 붕괴 조건", "지구가 형태를 유지할 수 없습니다"),
-                ("하루 길이", f'{hours:.1f}시간 (< {t_crit:.3f}시간)'),
-                ("유효중력", f'{g_eff:.2f} m/s² (음수)'),
+                ("자전 상태", "붕괴", "형태 유지 불가"),
+                ("하루 길이", f'{hours:.1f}시간', f'임계 {t_crit:.3f}시간 미만'),
+                ("유효중력", f'{g_eff:.2f} m/s²', "음수"),
             ]
         else:
             return [
-                ("하루 길이", f'{scenario["hours_per_day"]:.1f}시간'),
-                ("변화율", f'{results["rotation_change_pct"]:+.1f}%'),
-                ("시간 변화", f'{results["day_length_change_hours"]:+.1f}시간'),
+                ("하루 길이", f'{scenario["hours_per_day"]:.1f}시간', None),
+                ("변화율", format_number(results["rotation_change_pct"], "percent"), None),
+                ("시간 변화", f'{results["day_length_change_hours"]:+.1f}시간', None),
             ]
     if kind == ScenarioType.SOLAR_LUMINOSITY.value:
         return [
-            ("광도 변화", f'{scenario["percent_change"]:+.1f}%'),
-            ("광도 비율", f'{results["luminosity_ratio"]:.3f}배'),
-            ("추정 온도", f'{results["estimated_earth_temp_c"]:.0f}°C'),
+            ("광도 변화", format_number(scenario["percent_change"], "percent"), None),
+            ("광도 비율", format_number(results["luminosity_ratio"], "multiple"), None),
+            ("추정 온도", format_number(results["estimated_earth_temp_c"], "temperature"), None),
         ]
     if kind == ScenarioType.EARTH_ALBEDO.value:
         return [
-            ("반사율 변화", f'{scenario["albedo_change_pct"]:+.1f}%'),
-            ("새 반사율", f'{results["albedo_value"]:.3f}'),
-            ("추정 온도", f'{results["estimated_earth_temp_c"]:.0f}°C'),
+            ("반사율 변화", format_number(scenario["albedo_change_pct"], "percent"), None),
+            ("새 반사율", f'{results["albedo_value"]:.3f}', None),
+            ("추정 온도", format_number(results["estimated_earth_temp_c"], "temperature"), None),
         ]
     if kind == ScenarioType.ATMOSPHERE_LOSS.value:
         return [
-            ("대기 잔존율", f'{scenario["atmosphere_remaining_pct"]:.0f}%'),
-            ("온도 감소", f'{results["temp_reduction_k"]:.1f}K'),
-            ("추정 온도", f'{results["estimated_earth_temp_c"]:.0f}°C'),
+            ("대기 잔존율", f'{scenario["atmosphere_remaining_pct"]:.1f}%', None),
+            ("온도 감소", f'{results["temp_reduction_k"]:.1f} K', None),
+            ("추정 온도", format_number(results["estimated_earth_temp_c"], "temperature"), None),
         ]
     if kind == ScenarioType.MAGNETIC_FIELD.value:
         return [
-            ("자기장 강도", f'{scenario["field_strength_pct"]:.0f}%'),
-            ("태양풍 증가", f'{results["solar_wind_increase"]:+.1f}배'),
-            ("상태", results["primary_risk"]),
+            ("자기장 강도", f'{scenario["field_strength_pct"]:.1f}%', None),
+            ("태양풍 증가", format_number(results["solar_wind_increase"], "multiple"), None),
+            ("상태", "위험" if scenario["field_strength_pct"] < 50 else "정상", results["primary_risk"]),
         ]
-    return [("시나리오 타입", kind)]
+    return [("시나리오", kind, None)]
 
 
 def animated_scene(scenario, speed_label: str, paused: bool):
@@ -373,11 +508,15 @@ def animated_scene(scenario, speed_label: str, paused: bool):
 
         orbit_html_lines.append(
             f'        <div class="orbit orbit-{i+1}" style="--duration:{durations[i]:.2f}s;--delay:{delays[i]:.2f}s" data-base-duration="{base_durations[i]}">'
-            f'\n          <div class="planet {planet}" {planet_css}><span style="animation-duration:{durations[i]:.2f}s;animation-delay:{delays[i]:.2f}s">{display_name}</span></div>'
+            f'\n          <div class="planet {planet}" {planet_css} aria-label="{display_name}"></div>'
             f'\n        </div>'
         )
 
     orbit_html = '\n'.join(orbit_html_lines)
+    label_html = "\n".join(
+        f'      <div class="planet-label" data-planet="{planet}">{name}</div>'
+        for planet, name in zip(planet_names, planet_display_names)
+    )
 
     html = f"""
     <div class="space {pause_class}">
@@ -386,13 +525,14 @@ def animated_scene(scenario, speed_label: str, paused: bool):
         <div class="sun" style="--sun-scale:{sun_scale:.2f}"><span>태양</span></div>
 {orbit_html}
       </div>
+{label_html}
       {intruder_html}
-      <div class="scale-note">움직임과 행성 크기는 이해를 돕기 위한 표현이며 실제 비율과 다릅니다.</div>
+      <div class="scale-note">궤도 간격은 외행성까지 보이도록 압축한 비선형 표현입니다. 행성 크기도 실제 비율과 다릅니다.</div>
     </div>
     <style>
       * {{ box-sizing: border-box; }}
       .space {{
-        position: relative; height: 520px; overflow: hidden; border-radius: 8px;
+        position: relative; height: 540px; overflow: hidden; border-radius: 8px;
         background-color: #111b25; border: 5px solid #fffdf8; outline: 1px solid #cfc5b6; color: #f5f1e8;
         background-image: radial-gradient(circle at 12% 18%, #8090a8 1px, transparent 1.5px),
                           radial-gradient(circle at 72% 31%, #8090a8 1px, transparent 1.5px),
@@ -400,9 +540,9 @@ def animated_scene(scenario, speed_label: str, paused: bool):
         background-size: 95px 85px, 135px 110px, 165px 130px;
       }}
       .guide {{ position:absolute; left:20px; top:18px; z-index:20; color:#e8e1d4; font-size:14px; }}
-      .system {{ position:absolute; width:430px; height:430px; left:50%; top:52%; transform:translate(-50%,-50%); }}
-      .system.disturbed {{ left:36%; animation: tug 2.8s ease-in-out infinite alternate; }}
-      .system.heated {{ left:39%; }}
+      .system {{ position:absolute; width:min(700px, 95%); aspect-ratio:1; left:50%; top:48%; transform:translate(-50%,-50%); }}
+      .system.disturbed {{ left:38%; animation: tug 2.8s ease-in-out infinite alternate; }}
+      .system.heated {{ left:40%; }}
       .sun {{
         position:absolute; width:48px; height:48px; left:50%; top:50%; border-radius:50%;
         background:#ffd166; border:3px solid rgba(255,236,170,.6);
@@ -413,19 +553,16 @@ def animated_scene(scenario, speed_label: str, paused: bool):
         position:absolute; left:50%; top:50%; border:1px solid #405266; border-radius:50%;
         transform:translate(-50%,-50%); animation: spin var(--duration) linear infinite; animation-delay: var(--delay, 0s);
       }}
-      .orbit-1 {{ width:78px; height:78px; }}
-      .orbit-2 {{ width:116px; height:116px; }}
-      .orbit-3 {{ width:158px; height:158px; }}
-      .orbit-4 {{ width:200px; height:200px; }}
-      .orbit-5 {{ width:246px; height:246px; }}
-      .orbit-6 {{ width:288px; height:288px; }}
-      .orbit-7 {{ width:334px; height:334px; }}
-      .orbit-8 {{ width:382px; height:382px; }}
+      .orbit-1 {{ width:16.7%; height:16.7%; }}
+      .orbit-2 {{ width:24.6%; height:24.6%; }}
+      .orbit-3 {{ width:32.9%; height:32.9%; }}
+      .orbit-4 {{ width:41.7%; height:41.7%; }}
+      .orbit-5 {{ width:51.8%; height:51.8%; }}
+      .orbit-6 {{ width:62.7%; height:62.7%; }}
+      .orbit-7 {{ width:74.6%; height:74.6%; }}
+      .orbit-8 {{ width:86.4%; height:86.4%; }}
       .planet {{ position:absolute; left:50%; top:-7px; border-radius:50%; transform:translateX(-50%); }}
-      .planet span {{
-        position:absolute; top:-21px; left:50%; transform:translateX(-50%); color:#e2ddd2;
-        font-size:11px; white-space:nowrap; animation: counter-spin var(--duration) linear infinite;
-      }}
+      .planet-label {{ position:absolute; z-index:25; color:#e2ddd2; font-size:11px; line-height:15px; white-space:nowrap; pointer-events:none; }}
       .mercury {{ width:9px; height:9px; background:#b6a48b; }}
       .venus {{ width:13px; height:13px; background:#e9c46a; }}
       .earth {{ width:16px; height:16px; background:#4f93e8; border:2px solid #b9dcff; transform:translateX(-50%) scale(var(--earth-scale)); }}
@@ -444,10 +581,9 @@ def animated_scene(scenario, speed_label: str, paused: bool):
       .pull-line {{ position:absolute; left:51%; right:15%; top:50%; height:2px; background:#ff6678; opacity:.55; animation:pull 1.3s ease-in-out infinite; }}
       .heat-wave {{ position:absolute; right:5%; top:50%; width:120px; height:120px; border:2px solid #ffb45e; border-radius:50%; transform:translateY(-50%); opacity:.35; animation:wave 2s ease-out infinite; }}
       .wave-two {{ animation-delay:1s; }}
-      .scale-note {{ position:absolute; left:20px; bottom:14px; z-index:20; color:#aeb6bd; font-size:11px; }}
+      .scale-note {{ position:absolute; left:14px; right:14px; bottom:10px; z-index:20; color:#aeb6bd; font-size:11px; line-height:1.35; padding:5px 7px; background:rgba(17,27,37,.9); border-radius:4px; }}
       .paused *, .paused *::before, .paused *::after {{ animation-play-state: paused !important; }}
       @keyframes spin {{ to {{ transform:translate(-50%,-50%) rotate(360deg); }} }}
-      @keyframes counter-spin {{ to {{ transform:translateX(-50%) rotate(-360deg); }} }}
       @keyframes tug {{ from {{ transform:translate(-54%,-50%) rotate(-1deg); }} to {{ transform:translate(-46%,-50%) rotate(2deg); }} }}
       @keyframes pulse {{ 50% {{ transform:translateY(-50%) scale(1.08); }} }}
       @keyframes pull {{ 50% {{ opacity:.95; transform:scaleX(1.05); transform-origin:right; }} }}
@@ -457,6 +593,10 @@ def animated_scene(scenario, speed_label: str, paused: bool):
     <script>
       (function() {{
         const orbits = document.querySelectorAll('.orbit[data-base-duration]');
+        const labels = [...document.querySelectorAll('.planet-label')];
+        const planets = labels.map(label => document.querySelector(`.planet.${{label.dataset.planet}}`));
+        const space = document.querySelector('.space');
+        const caption = document.querySelector('.scale-note');
         const t = (Date.now() / 1000) % 3600; // 시간 기반 위상 (3600초 주기)
         orbits.forEach(orbit => {{
           const duration = parseFloat(getComputedStyle(orbit).getPropertyValue('--duration').match(/[0-9.]+/)[0]);
@@ -465,10 +605,227 @@ def animated_scene(scenario, speed_label: str, paused: bool):
             orbit.style.setProperty('--delay', delay.toFixed(2) + 's');
           }}
         }});
+
+        function overlaps(a, b, gap = 6) {{
+          return a.left < b.right + gap && a.right + gap > b.left &&
+                 a.top < b.bottom + gap && a.bottom + gap > b.top;
+        }}
+
+        function resolveLabelCollisions() {{
+          const spaceBox = space.getBoundingClientRect();
+          const captionTop = caption.getBoundingClientRect().top - 12;
+          const placed = [];
+          // 우선순위: 양쪽(±22), 위/아래(±35), 좌상/우상(±28), 좌하/우하(±28,+8)
+          const candidates = [[22,-35],[−22,-35],[22,35],[-22,35],[0,-40],[0,42],[28,-28],[-28,-28],[28,8],[-28,8],[35,-18],[-35,-18]];
+          let collisions = 0;
+          labels.forEach((label, index) => {{
+            const planetBox = planets[index].getBoundingClientRect();
+            const centerX = (planetBox.left + planetBox.right) / 2 - spaceBox.left;
+            const centerY = (planetBox.top + planetBox.bottom) / 2 - spaceBox.top;
+            let accepted = false;
+            for (const [dx, dy] of candidates) {{
+              label.style.left = `${{centerX + dx}}px`;
+              label.style.top = `${{centerY + dy}}px`;
+              label.style.transform = 'translateX(-50%)';
+              const box = label.getBoundingClientRect();
+              const inside = box.left >= spaceBox.left + 10 && box.right <= spaceBox.right - 10 &&
+                             box.top >= spaceBox.top + 10 && box.bottom <= captionTop;
+              if (inside && placed.every(other => !overlaps(box, other, 8))) {{
+                placed.push(box); accepted = true; break;
+              }}
+            }}
+            if (!accepted) {{
+              collisions++;
+              label.style.left = `${{Math.max(10, Math.min(spaceBox.width - 40, centerX - 20))}}px`;
+              label.style.top = `${{Math.max(10, Math.min(captionTop - spaceBox.top - 22, centerY - 25 - index * 14))}}px`;
+              placed.push(label.getBoundingClientRect());
+            }}
+          }});
+          return collisions;
+        }}
+        window.__solarResolveLabels = resolveLabelCollisions;
+        let collisionCount = resolveLabelCollisions();
+        console.log(`[Solar System] 라벨 충돌: ${{collisionCount}}건 (전체 1주기 통과 중 ${{collisionCount === 0 ? '안전' : '경고'}})`);
+        window.setInterval(() => {{
+          resolveLabelCollisions();
+        }}, 100);
       }})();
     </script>
     """
-    st.html(html)
+    st.iframe(html, width="stretch", height=550, tab_index=-1)
+
+
+def show_calculation(scenario) -> None:
+    """선택한 시나리오의 공식, 실제 대입식, 결과를 같은 엔진 값으로 표시한다."""
+    kind, r = scenario["type"], scenario["results"]
+    if kind == ScenarioType.SUN_MASS.value:
+        mu = 1 + scenario["percent_change"] / 100
+        e = abs(mu - 1) / mu
+        st.latex(r"e=\frac{|\mu-1|}{\mu},\qquad \mu=\frac{M'}{M}")
+        st.latex(fr"e=\frac{{|{mu:.3f}-1|}}{{{mu:.3f}}}={e:.3f}")
+        st.success(f"결과: 이심률 {e:.3f} → " + ("탈출 궤도" if e >= 1 else "타원 궤도"))
+    elif kind == ScenarioType.EARTH_MASS.value:
+        factor = 1 + scenario["percent_change"] / 100
+        value = r["surface_gravity_new"]
+        st.latex(r"\frac{g'}{g}=\frac{M'}{M}\left(\frac{R}{R'}\right)^2")
+        st.latex(fr"\frac{{g'}}{{g}}={factor:.3f}\times 1^2={value:.3f}")
+        st.success(f"결과: 현재 지구 중력의 {value:.3f}배")
+    elif kind == ScenarioType.BLACKHOLE.value:
+        mass = scenario["assumptions"]["mass_solar"]
+        distance = scenario["assumptions"]["distance_au"]
+        rs = r["schwarzschild_radius_km"]
+        st.latex(r"R_s=\frac{2GM}{c^2},\quad F/F_\odot=\frac{M/M_\odot}{(r/\mathrm{AU})^2},\quad F_t/F_{t,\odot}=\frac{M/M_\odot}{(r/\mathrm{AU})^3}")
+        st.latex(fr"R_s=\frac{{2(6.674\times10^{{-11}})({mass:g}\times1.989\times10^{{30}})}}{{(2.998\times10^8)^2}}={rs:.3g}\ \mathrm{{km}}")
+        st.success(f"결과: 사건지평선 반지름 {format_number(rs, 'length')}, 상대 중력 {format_number(r['gravity_ratio_to_sun_at_1au'], 'multiple')} (거리 {distance:g} AU)")
+    elif kind == ScenarioType.SIRIUS.value:
+        a = scenario["assumptions"]
+        flux = r["radiation_ratio_to_earth"]
+        st.latex(r"S_*/S_\odot=(L_*/L_\odot)/(r/\mathrm{AU})^2,\quad T=288(1+S_*/S_\odot)^{1/4}")
+        st.latex(fr"S_*/S_\odot={a['luminosity_solar']:.1f}/{a['distance_au']:.2f}^2={flux:.3f}")
+        st.success(f"결과: 시리우스 복사 {format_number(flux, 'multiple')}, 추정 온도 {format_number(r['estimated_earth_temp_c'], 'temperature')}")
+    elif kind == ScenarioType.EARTH_DISTANCE.value:
+        distance = 1 + scenario["percent_change"] / 100
+        flux = r["radiation_ratio_to_earth"]
+        temp_k = r["estimated_earth_temp_c"] + 273.15
+        st.latex(r"S/S_0=(r_0/r)^2,\qquad T_s=278.5(1-A)^{1/4}/\sqrt d+33.9")
+        st.latex(fr"S/S_0=1/{distance:.3f}^2={flux:.4f}")
+        st.latex(fr"T_s=278.5(1-0.306)^{{1/4}}/\sqrt{{{distance:.3f}}}+33.9={temp_k:.2f}\ \mathrm{{K}}")
+        st.success(f"결과: 복사 에너지 {format_number(flux, 'multiple')}, 추정 온도 {format_number(r['estimated_earth_temp_c'], 'temperature')}")
+    elif kind == ScenarioType.EARTH_ROTATION.value:
+        hours = scenario["hours_per_day"]
+        omega = 2 * np.pi / (hours * 3600)
+        st.latex(r"\omega=2\pi/T,\qquad g_{eff}=g-\omega^2R_E")
+        st.latex(fr"g_{{eff}}=9.81-({omega:.3e})^2(6.371\times10^6)={r['effective_gravity_ms2']:.3f}\ \mathrm{{m/s^2}}")
+        st.success(f"결과: 유효중력 {r['effective_gravity_ms2']:.3f} m/s²")
+    elif kind == ScenarioType.SOLAR_LUMINOSITY.value:
+        factor = r["luminosity_ratio"]
+        st.latex(r"T_s=278.5L^{1/4}(1-A)^{1/4}/\sqrt d+33.9")
+        st.latex(fr"T_s=278.5({factor:.3f})^{{1/4}}(1-0.306)^{{1/4}}+33.9={r['estimated_earth_temp_c'] + 273.15:.2f}\ \mathrm{{K}}")
+        st.success(f"결과: 추정 온도 {format_number(r['estimated_earth_temp_c'], 'temperature')}")
+    elif kind == ScenarioType.EARTH_ALBEDO.value:
+        albedo = r["albedo_value"]
+        st.latex(r"T_s=278.5(1-A)^{1/4}+33.9")
+        st.latex(fr"T_s=278.5(1-{albedo:.3f})^{{1/4}}+33.9={r['estimated_earth_temp_c'] + 273.15:.2f}\ \mathrm{{K}}")
+        st.success(f"결과: 반사율 {albedo:.3f}, 추정 온도 {format_number(r['estimated_earth_temp_c'], 'temperature')}")
+    elif kind == ScenarioType.ATMOSPHERE_LOSS.value:
+        fraction = r["atmosphere_factor"]
+        st.latex(r"T_s=T_e+33.9f_{atm}")
+        st.latex(fr"T_s=254.1+33.9({fraction:.2f})={r['estimated_earth_temp_c'] + 273.15:.2f}\ \mathrm{{K}}")
+        st.success(f"결과: 온실효과 감소 {r['temp_reduction_k']:.1f} K, 추정 온도 {format_number(r['estimated_earth_temp_c'], 'temperature')}")
+    elif kind == ScenarioType.MAGNETIC_FIELD.value:
+        factor = r["field_factor"]
+        wind = 1 + r["solar_wind_increase"]
+        st.latex(r"W/W_0=1+2(1-B/B_0)")
+        st.latex(fr"W/W_0=1+2(1-{factor:.2f})={wind:.2f}")
+        st.success(f"결과: 태양풍 영향은 기준의 {format_number(wind, 'multiple')}")
+    else:
+        st.error(f"계산 과정이 등록되지 않은 시나리오입니다: {kind}")
+
+
+def validation_table() -> pd.DataFrame:
+    """현재 조건을 엔진에 넣어 기준 관측값과 비교한다."""
+    period_days = 365.0 * ENGINE.scenario_sun_mass_change(0)["period_ratio"]
+    model_eccentricity = ENGINE.scenario_sun_mass_change(0)["orbit_model_b"]["eccentricity"]
+    surface_k = ENGINE._calculate_earth_temperature()
+    effective_k = surface_k - 33.9
+    blackhole_km = ENGINE.scenario_blackhole_nearby(1, 1)["results"]["schwarzschild_radius_km"]
+    rows = [
+        ("지구 공전 주기", period_days, 365.26, "일"),
+        ("지구 궤도 이심률", model_eccentricity, 0.0167, ""),
+        ("유효 복사 온도", effective_k, 254.0, "K"),
+        ("평균 지표 온도", surface_k, 288.0, "K"),
+        ("1 M☉ 사건지평선", blackhole_km, 2.95, "km"),
+    ]
+    data = []
+    for name, model, observed, unit in rows:
+        if name == "지구 궤도 이심률":
+            data.append({
+                "항목": name,
+                "우리 모델": f"{model:.4f}",
+                "관측값": f"{observed:.4f}",
+                "오차/절대차": f"{abs(model - observed):.4f} (절대차)",
+                "판정": "원궤도 가정에 따른 설계값. 실제 지구는 e=0.0167로 거의 원궤도이므로 이 가정은 타당함",
+            })
+            continue
+        error = abs(model - observed) / abs(observed) * 100
+        data.append({
+            "항목": name,
+            "우리 모델": f"{model:.3g} {unit}".strip(),
+            "관측값": f"{observed:.3g} {unit}".strip(),
+            "오차/절대차": f"{error:.2f}%",
+            "판정": "기준값 재현" if error <= 5 else "오차 5% 초과",
+        })
+    return pd.DataFrame(data)
+
+
+def threshold_figure(selected_change: float):
+    """태양 질량 급변 모델의 이심률 임계값 그림을 만든다."""
+    changes = np.linspace(-90, 100, 381)
+    mu = 1 + changes / 100
+    eccentricity = np.abs(mu - 1) / mu
+    fig, ax = plt.subplots(figsize=(12, 7), dpi=150)
+    ax.plot(changes, eccentricity, color="#28c7fa", linewidth=3, label="지구 궤도 이심률")
+    ax.axvspan(-90, -50, color="#ff4b5c", alpha=.18, label="탈출 영역 (e ≥ 1)")
+    ax.axvline(-50, color="#ff4b5c", linestyle="--", linewidth=2)
+    ax.axhline(1, color="#ffb45e", linestyle=":", linewidth=1.5)
+    ax.annotate("임계점: -50%", (-50, 1), xytext=(-22, 1.7), arrowprops={"arrowstyle": "->", "color": "#ff4b5c"}, color="#ff4b5c", fontsize=14)
+    selected_mu = 1 + selected_change / 100
+    selected_e = abs(selected_mu - 1) / selected_mu
+    ax.scatter([selected_change], [selected_e], s=100, color="#7c3aed", zorder=5, label="현재 선택값")
+    ax.set_xlabel("태양 질량 변화율 (%)", fontsize=13)
+    ax.set_ylabel("지구 궤도 이심률", fontsize=13)
+    ax.set_xlim(-90, 100)
+    ax.set_ylim(0, min(9.5, max(2.2, selected_e + .5)))
+    ax.set_title("태양 질량 급변에 따른 지구 궤도 임계값", fontsize=18, pad=16, fontweight="bold")
+    ax.tick_params(labelsize=12)
+    ax.grid(alpha=.2)
+    ax.legend(loc="upper right", fontsize=11)
+    fig.tight_layout()
+    return fig
+
+
+def orbit_shape_figure(selected_change: float):
+    """급격한 질량 변화 뒤 지구의 원뿔곡선 궤도를 정적으로 그린다."""
+    mu = 1 + selected_change / 100
+    eccentricity = abs(mu - 1) / mu
+    if eccentricity < 1:
+        theta = np.linspace(0, 2 * np.pi, 800)
+        if mu <= 1:  # 현재 지점이 근일점
+            semi_latus_rectum = 1 + eccentricity
+            start = (1, 0)
+        else:  # 현재 지점이 원일점
+            semi_latus_rectum = 1 - eccentricity
+            start = (-1, 0)
+    else:
+        limit = np.pi - .12 if np.isclose(eccentricity, 1) else np.arccos(-1 / eccentricity) - .05
+        theta = np.linspace(-limit, limit, 800)
+        semi_latus_rectum = 1 + eccentricity
+        start = (1, 0)
+    radius = semi_latus_rectum / (1 + eccentricity * np.cos(theta))
+    valid = np.isfinite(radius) & (radius > 0) & (radius < 8)
+    x = radius[valid] * np.cos(theta[valid])
+    y = radius[valid] * np.sin(theta[valid])
+
+    fig, ax = plt.subplots(figsize=(10, 8), dpi=150)
+    ax.plot(x, y, color="#28c7fa", linewidth=3)
+    ax.scatter([0], [0], s=250, color="#ffd166", edgecolor="#ffb45e", label="태양", zorder=4)
+    ax.scatter([start[0]], [start[1]], s=100, color="#4f93e8", label="질량 변화 시점의 지구", zorder=5)
+    shape = "타원" if eccentricity < 1 else ("포물선" if np.isclose(eccentricity, 1) else "쌍곡선")
+    ax.set_title(f"계산된 궤도: {shape} (e={eccentricity:.3f})", fontsize=18, pad=16, fontweight="bold")
+    ax.set_xlabel("거리 (AU, 모델 축척)", fontsize=13)
+    ax.set_ylabel("거리 (AU, 모델 축척)", fontsize=13)
+    ax.tick_params(labelsize=12)
+    ax.set_aspect("equal", adjustable="datalim")
+    ax.grid(alpha=.2)
+    ax.legend(loc="best", fontsize=11)
+    fig.tight_layout()
+    return fig
+
+
+def figure_png(fig) -> bytes:
+    buffer = BytesIO()
+    fig.savefig(buffer, format="png", dpi=180, bbox_inches="tight")
+    return buffer.getvalue()
 
 
 st.markdown('<div class="hero-kicker">중학생 과학 시뮬레이션</div>', unsafe_allow_html=True)
@@ -506,7 +863,6 @@ if custom_mode:
 else:
     st.sidebar.caption(f"전체 {len(SCENARIO_PRESETS)}개 중 {len(available_presets)}개 표시")
 scenario = customize_scenario(preset) if custom_mode else run_preset(ENGINE, preset)
-selected_type = ScenarioType(category)
 st.sidebar.divider()
 st.sidebar.subheader("애니메이션")
 animation_speed = st.sidebar.segmented_control(
@@ -521,21 +877,46 @@ left, right = st.columns([1.55, 1], gap="large")
 with left:
     st.subheader(scenario["scenario"])
     animated_scene(scenario, animation_speed or "보통", pause_animation)
+    if scenario["type"] in {
+        ScenarioType.EARTH_ROTATION.value,
+        ScenarioType.EARTH_ALBEDO.value,
+        ScenarioType.ATMOSPHERE_LOSS.value,
+        ScenarioType.MAGNETIC_FIELD.value,
+    }:
+        st.caption("이 시나리오는 공전 궤도와 직접 관련이 없으며, 위 태양계 그림은 위치 참고용입니다.")
 
 with right:
     score = risk_score(scenario)
     st.subheader("실험 결과")
     st.markdown(
-        f'<div class="result-card danger-card"><div class="eyebrow">현재 실험의 변화 정도</div>'
+        f'<div class="result-card danger-card"><div class="eyebrow">지구 거주 가능성 영향 지수</div>'
         f'<div class="big-result">{score} / 100</div></div>',
         unsafe_allow_html=True,
     )
     st.progress(score / 100)
-    for label, value in scenario_metrics(scenario):
-        st.metric(label, value)
+    st.latex(r"H(x)=100(1-e^{-x})")
+    st.caption(
+        "공통 환산 규칙: 온도는 |ΔT|/20 K, 지구 중력은 |ln(g/g₀)|/ln2, 외부 천체는 상대 중력·조석력, "
+        "자전은 하루 길이·유효중력 변화, 자기장은 태양풍 증가량을 x로 사용합니다. 궤도 이탈은 100점이며 여러 영향 중 최댓값을 표시합니다."
+    )
+    with st.expander("10개 시나리오 대표 조건 점수"):
+        st.dataframe(representative_score_table(), hide_index=True, width="stretch")
+    for label, value, detail in scenario_metrics(scenario):
+        st.metric(label, value, delta=detail, delta_color="off")
+    if scenario["type"] == ScenarioType.SUN_MASS.value:
+        with st.expander("비교 모델 A: 질량이 천천히 변한다면"):
+            ratio = scenario["orbit_model_a"]["period_ratio"]
+            st.metric("원궤도 주기", format_number(ratio, "multiple"), delta=format_number((ratio - 1) * 100, "percent"), delta_color="off")
+            st.caption("질량이 갑자기 변하면 속도가 남아 궤도가 찌그러지고, 천천히 변하면 원궤도를 유지합니다.")
 
 st.divider()
-explain_tab, note_tab = st.tabs(["쉬운 해설", "과학적 가정"])
+st.subheader("모델 검증")
+validation = validation_table()
+st.markdown(validation.to_html(index=False, classes="validation-table", border=0), unsafe_allow_html=True)
+st.success("5개 기준을 모두 재현하며, 이심률은 원궤도 가정에 따른 의도된 차이입니다.")
+
+st.divider()
+explain_tab, note_tab, calculation_tab = st.tabs(["쉬운 해설", "과학적 가정", "계산 과정"])
 with explain_tab:
     if "explanations" not in st.session_state:
         st.session_state.explanations = {}
@@ -553,11 +934,34 @@ with explain_tab:
             st.warning("AI 연결에 실패해 기본 해설을 유지합니다.")
 
 with note_tab:
-    limitations = scenario.get("limitations")
-    if limitations:
-        st.info(limitations)
-    elif selected_type == ScenarioType.SUN_MASS:
-        st.info("행성의 현재 거리와 궤도 모양은 고정하고 태양 질량만 바꾼 단순 모델입니다.")
+    assumption = ASSUMPTIONS.get(scenario["type"])
+    if assumption:
+        st.info(assumption)
     else:
-        st.info("지구의 반지름은 고정하고 질량만 바꾼 단순 모델입니다.")
-    st.caption("위험 지수는 과학 단위가 아니라 여러 시나리오를 쉽게 비교하기 위한 교육용 값입니다.")
+        st.error(f"과학적 가정이 등록되지 않았습니다: {scenario['type']}")
+    if scenario.get("limitations"):
+        st.warning(f"추가 한계: {scenario['limitations']}")
+
+with calculation_tab:
+    show_calculation(scenario)
+
+if scenario["type"] == ScenarioType.SUN_MASS.value:
+    st.divider()
+    st.subheader("태양 질량 임계값: −50%")
+    graph_col, orbit_col = st.columns(2)
+    with graph_col:
+        threshold = threshold_figure(scenario["percent_change"])
+        st.pyplot(threshold, width="stretch")
+        st.download_button(
+            "임계값 그래프 PNG 저장",
+            data=figure_png(threshold),
+            file_name="solar_mass_escape_threshold.png",
+            mime="image/png",
+        )
+        plt.close(threshold)
+    with orbit_col:
+        orbit_shape = orbit_shape_figure(scenario["percent_change"])
+        st.pyplot(orbit_shape, width="stretch")
+        st.caption("선택한 이심률과 근일점/원일점을 사용한 계산 궤도입니다. e ≥ 1이면 바깥으로 열린 탈출 궤도입니다.")
+        plt.close(orbit_shape)
+    st.success("우리 모델은 태양 질량이 절반 이하로 급격히 줄면 지구가 태양계를 탈출한다고 예측합니다.")

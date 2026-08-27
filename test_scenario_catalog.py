@@ -2,10 +2,10 @@ from solar_system_sim_v2_openai import PLANETS, SimulationEngine
 from scenario_catalog import CATEGORY_LABELS, SCENARIO_PRESETS, presets_for, run_preset
 
 
-def test_catalog_has_exactly_50_unique_scenarios():
-    assert len(SCENARIO_PRESETS) == 50
-    assert len({item["id"] for item in SCENARIO_PRESETS}) == 50
-    assert len({item["title"] for item in SCENARIO_PRESETS}) == 50
+def test_catalog_has_exactly_100_unique_scenarios():
+    assert len(SCENARIO_PRESETS) == 100
+    assert len({item["id"] for item in SCENARIO_PRESETS}) == 100
+    assert len({item["title"] for item in SCENARIO_PRESETS}) == 100
 
 
 def test_every_category_has_scenarios():
@@ -19,4 +19,3 @@ def test_all_presets_run_through_engine():
         result = run_preset(engine, preset)
         assert result["type"] == preset["type"]
         assert "results" in result
-

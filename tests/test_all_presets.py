@@ -4,6 +4,10 @@
 pytest 없이도 실행 가능: python tests/test_all_presets.py
 """
 
+# 이 파일은 자체 main()으로 100개를 순회하는 실행 스크립트다.
+# pytest에서는 동일 검증을 test_scenario_catalog.py가 담당하므로 중복 수집하지 않는다.
+__test__ = False
+
 import sys
 from pathlib import Path
 

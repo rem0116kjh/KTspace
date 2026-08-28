@@ -65,6 +65,25 @@ cp .env.example .env
 `.env` 파일의 `OPENAI_API_KEY`에 새로 발급한 키를 입력합니다. 실제 키는
 코드, 화면 캡처, 채팅 또는 Git 저장소에 올리지 마세요.
 
+## 데이터 내보내기 (CSV)
+
+모든 시뮬레이션 결과는 `data.csv` 파일에 자동으로 저장됩니다.
+
+**포함되는 데이터:**
+- `timestamp`: 실행 시간 (ISO 8601 형식)
+- `scenario_type`: 시나리오 타입 (sun_mass, earth_mass, blackhole, sirius 등)
+- `scenario_title`: 시나리오 제목
+- `scenario_params`: 시뮬레이션 파라미터 (JSON)
+- `results`: 계산 결과값 (JSON)
+- `risk_score`: 지구 거주 가능성 영향 지수 (0–100)
+- `ai_interpretation`: AI 해석 텍스트 (있을 경우)
+
+**CSV 정보:**
+- 인코딩: UTF-8
+- 구분자: 쉼표
+- 헤더: 첫 행에 컬럼명 포함
+- 누적 저장: 기존 데이터 보존
+
 ## 시나리오와 가정
 
 | 시나리오 | 기본 가정 | 주요 계산 |

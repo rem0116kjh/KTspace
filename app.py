@@ -1,5 +1,8 @@
 """직접 조작하는 태양계 WHAT IF Streamlit 앱."""
 
+import csv
+import json
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 import time
@@ -42,6 +45,51 @@ def configure_korean_matplotlib_font() -> str | None:
 
 
 MATPLOTLIB_FONT_WARNING = configure_korean_matplotlib_font()
+
+
+def save_scenario_to_csv(scenario: dict, risk_score_value: int, ai_interpretation: str | None = None) -> None:
+    """시뮬레이션 결과를 data.csv에 저장한다.
+
+    Args:
+        scenario: 시뮬레이션 결과 딕셔너리
+        risk_score_value: 위험 지수 (0-100)
+        ai_interpretation: AI 해석 텍스트 (선택사항)
+    """
+    csv_path = Path("data.csv")
+    file_exists = csv_path.exists()
+
+    # 시나리오 제목 및 파라미터 추출
+    scenario_title = scenario.get("scenario", "Unknown")
+    scenario_type = scenario.get("type", "unknown")
+
+    # 파라미터와 결과를 JSON으로 변환
+    params = {}
+    for key in scenario:
+        if key not in ["scenario", "type", "results", "orbit_model_a", "orbit_model_b",
+                       "assumptions", "limitations", "threat", "threat_level"]:
+            if isinstance(scenario[key], (str, int, float, bool)):
+                params[key] = scenario[key]
+
+    results = scenario.get("results", {})
+
+    row = {
+        "timestamp": datetime.now().isoformat(),
+        "scenario_type": scenario_type,
+        "scenario_title": scenario_title,
+        "scenario_params": json.dumps(params, ensure_ascii=False),
+        "results": json.dumps(results, ensure_ascii=False, default=str),
+        "risk_score": risk_score_value,
+        "ai_interpretation": ai_interpretation or "",
+    }
+
+    try:
+        with open(csv_path, "a", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=row.keys())
+            if not file_exists:
+                writer.writeheader()
+            writer.writerow(row)
+    except Exception as e:
+        st.error(f"CSV 저장 실패: {e}")
 
 
 st.set_page_config(
@@ -966,6 +1014,19 @@ with right:
             ratio = scenario["orbit_model_a"]["period_ratio"]
             st.metric("원궤도 주기", format_number(ratio, "multiple"), delta=format_number((ratio - 1) * 100, "percent"), delta_color="off")
             st.caption("질량이 갑자기 변하면 속도가 남아 궤도가 찌그러지고, 천천히 변하면 원궤도를 유지합니다.")
+
+# CSV 저장: 현재 시나리오를 한 번만 저장
+if "saved_scenario_keys" not in st.session_state:
+    st.session_state.saved_scenario_keys = set()
+
+scenario_key = repr(scenario)
+if scenario_key not in st.session_state.saved_scenario_keys:
+    if "explanations" in st.session_state:
+        saved_explanation = st.session_state.explanations.get(scenario_key)
+    else:
+        saved_explanation = None
+    save_scenario_to_csv(scenario, score, saved_explanation)
+    st.session_state.saved_scenario_keys.add(scenario_key)
 
 st.divider()
 st.subheader("모델 검증")

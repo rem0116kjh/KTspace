@@ -1,4 +1,4 @@
-"""태양계 WHAT IF 앱에서 사용하는 50개 검증 가능한 시나리오 프리셋."""
+"""태양계 WHAT IF 앱에서 사용하는 100개 검증 가능한 시나리오 프리셋."""
 
 from typing import Any, Dict, List
 

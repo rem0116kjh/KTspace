@@ -2,6 +2,7 @@
 
 import csv
 import json
+import os
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -22,6 +23,17 @@ from solar_system_sim_v2_openai import (
     fallback_interpretation,
 )
 from scenario_catalog import CATEGORY_LABELS, SCENARIO_PRESETS, presets_for, run_preset
+
+
+# Streamlit Cloud secrets 지원: st.secrets 우선, 없으면 .env (os.getenv)
+try:
+    if "OPENAI_API_KEY" not in os.environ:
+        api_key_from_secrets = st.secrets.get("OPENAI_API_KEY")
+        if api_key_from_secrets:
+            os.environ["OPENAI_API_KEY"] = api_key_from_secrets
+except (FileNotFoundError, AttributeError):
+    # st.secrets이 설정되지 않은 환경 (로컬 테스트)
+    pass
 
 
 def configure_korean_matplotlib_font() -> str | None:

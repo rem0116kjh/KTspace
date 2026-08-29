@@ -4,7 +4,7 @@
 
 | 항목 | 값 |
 |-----|-----|
-| **메인 파일 경로** | `app.py` |
+| **메인 파일 경로** | `김진형_태양계시뮬레이터.py` |
 | **브랜치명** | `main` |
 | **저장소** | https://github.com/luka0116kjh/KTspace |
 
@@ -32,7 +32,7 @@ OPENAI_API_KEY = "sk-proj-..."  # OpenAI API 키 (선택사항)
 2. GitHub 계정으로 로그인
 3. 저장소 `https://github.com/luka0116kjh/KTspace` 선택
 4. 앱 정보 입력:
-   - **Main file path**: `app.py`
+   - **Main file path**: `김진형_태양계시뮬레이터.py`
    - **Branch**: `main`
 
 ### 2단계: 배포 실행
@@ -40,7 +40,7 @@ OPENAI_API_KEY = "sk-proj-..."  # OpenAI API 키 (선택사항)
 1. `packages.txt` 읽음 → `fonts-nanum` 설치 (한글 폰트)
 2. `requirements.txt` 읽음 → Python 패키지 설치
 3. `.env` 무시 (git에 포함 안 됨, 안전함)
-4. `app.py` 실행 → Streamlit 앱 시작
+4. `김진형_태양계시뮬레이터.py` 실행 → Streamlit 앱 시작
 
 ### 3단계: Secrets 추가 (선택)
 배포 후 대시보드에서 앱의 **Settings** → **Secrets** 진입 후:
@@ -85,7 +85,7 @@ OPENAI_API_KEY = "sk-proj-..."
 
 | 파일 | 용도 |
 |-----|-----|
-| `app.py` | 메인 Streamlit 앱 |
+| `김진형_태양계시뮬레이터.py` | 메인 Streamlit 앱 |
 | `solar_system_sim_v2_openai.py` | 물리 계산 엔진 |
 | `scenario_catalog.py` | 100개 프리셋 정의 |
 | `requirements.txt` | Python 패키지 (pip) |

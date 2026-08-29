@@ -38,7 +38,7 @@
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-streamlit run app.py
+streamlit run 김진형_태양계시뮬레이터.py
 ```
 
 브라우저에서 100개 프리셋 중 하나를 고르거나 값을 직접 조정하며 실시간으로 결과를 확인할 수 있습니다.

@@ -3,7 +3,7 @@ import argparse
 import json
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from orbital_dynamics import build_experiment
+from scenario_workspace import build_workspace
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -12,7 +12,7 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         if self.path.split("?")[0] == "/api/experiment":
-            self.send_json(build_experiment())
+            self.send_json(build_workspace())
         else:
             super().do_GET()
 
@@ -27,7 +27,7 @@ class Handler(SimpleHTTPRequestHandler):
             values = json.loads(self.rfile.read(length))
             if not isinstance(values, dict):
                 raise ValueError("설정은 객체여야 합니다.")
-            self.send_json(build_experiment(values))
+            self.send_json(build_workspace(values))
         except (ValueError, TypeError) as exc:
             self.send_json({"error": str(exc)}, 400)
 

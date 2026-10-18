@@ -9,6 +9,75 @@
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 /* An iframe's height must depend on content, never its own viewport height. */
 .embedded .content-shell{min-height:0}
+
+/* Experiment selection stays visible above both kinds of workspace. */
+.experiment-picker { padding:20px; margin-top:24px; }
+.picker-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:17px; }
+.picker-heading h2 { font-size:19px; margin-top:5px; font-weight:600; }
+.picker-heading>span { color:var(--muted); font-size:12px; }
+.experiment-options { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:9px; }
+.experiment-options button { display:flex; align-items:center; gap:9px; min-height:76px; border:1px solid #354052; border-radius:8px; background:#121d2b; text-align:left; padding:12px 10px; }
+.experiment-options button>svg { width:22px; height:22px; color:#a9bbd4; }
+.experiment-options button strong { display:block; font-size:13px; font-weight:550; }
+.experiment-options button small { display:block; color:var(--muted); font-size:11px; margin-top:4px; }
+.experiment-options button:hover { border-color:var(--mint); background:#1a2a32; }
+.experiment-options button[aria-pressed=true] { background:#1a382f; border-color:#6cbb9e; color:#b4f4d9; }
+.experiment-options button[aria-pressed=true]>svg { color:var(--mint); }
+.picker-check { margin-left:auto; color:var(--mint); }
+.scenario-question { display:flex; gap:14px; align-items:center; padding:19px 22px; border:1px solid #364e46; background:#14231e; border-radius:8px; margin:0 0 22px; }
+.scenario-question svg { color:var(--mint); }
+.scenario-question p { font-size:15px; line-height:1.8; }
+.scenario-grid { grid-template-columns:minmax(0,1fr) 320px; align-items:start; }
+.scenario-visual { overflow:hidden; }
+.scenario-illustration { display:flex; align-items:center; justify-content:center; gap:20px; min-height:182px; margin:0 20px; border-bottom:1px solid var(--line); background:radial-gradient(ellipse at 25% 50%,#382b4622,transparent 60%); }
+.concept-object { display:flex; align-items:center; flex-direction:column; gap:13px; min-width:74px; }
+.concept-object strong { font-size:13px; font-weight:500; color:#d2e2f1; }
+.concept-symbol,.earth-symbol { width:66px; height:66px; border-radius:50%; display:grid; place-items:center; background:#1b3747; color:#9dd7ed; border:1px solid #47718a; }
+.concept-symbol svg,.earth-symbol svg { width:40px; height:40px; }
+.concept-symbol { background:#372c24; color:#f0c798; border-color:#795c46; }
+.blackhole-symbol { width:70px; height:70px; border-radius:50%; background:#050509; border:3px solid #d6b4fa; box-shadow:0 0 13px #b279d955,inset 0 0 8px #825cad55; position:relative; }
+.blackhole-symbol i { position:absolute; width:97px; height:25px; border:2px solid #dcb0ec; border-radius:50%; left:-17px; top:20px; transform:rotate(-22deg); opacity:.75; }
+.concept-connection { text-align:center; flex:1; max-width:240px; color:#c5d4e6; }
+.concept-connection>span { font-size:14px; }
+.concept-connection>i { display:block; border-top:1px dashed #6f819d; margin:13px 0; }
+.concept-connection small { display:block; font-size:11px; line-height:1.8; color:var(--muted); }
+.scenario-chart-heading { padding:22px 24px 2px; }
+.scenario-chart-heading h3 { font-size:14px; line-height:1.8; font-weight:550; }
+.scenario-chart-heading p { font-size:11px; line-height:1.8; color:var(--muted); margin-top:4px; }
+#scenario-chart { display:block; width:100%; height:258px; }
+.scenario-diagram-note { color:var(--muted); font-size:11px; line-height:1.9; padding:0 24px 20px; }
+.scenario-controls .control-section { padding-bottom:24px; margin-bottom:15px; border-bottom:1px solid var(--line); }
+.scenario-controls .control-value { margin:16px 0 9px; }
+.scenario-controls .control-value>output { font-size:35px; }
+.scenario-controls .primary { width:100%; min-height:48px; font-size:13px; margin-top:15px; }
+.scenario-controls .quick-presets button { font-size:12px; padding:12px 5px; min-height:44px; }
+.scenario-summary { padding:24px; margin-top:20px; background:#14271f; border-color:#3c6753; }
+.scenario-summary .section-index { color:#b0d7c8; font-size:12px; letter-spacing:0; }
+.scenario-summary h2 { font-size:21px; line-height:1.7; margin:8px 0; font-weight:600; }
+.scenario-summary p { color:#c9dbd2; font-size:15px; line-height:1.9; }
+#scenario-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); margin-top:18px; }
+#scenario-metrics .metric-value { font-size:30px; overflow-wrap:anywhere; }
+.scenario-table-panel { padding:0 22px; margin:20px 0; overflow:auto; }
+.scenario-table-panel>summary,.scenario-limit summary { padding:16px 0; min-height:48px; color:#c7deee; cursor:pointer; font-size:14px; }
+.scenario-table-panel td { font-size:13px; white-space:normal; overflow-wrap:anywhere; }
+.scenario-limit { padding:22px; margin-top:20px; }
+.scenario-limit h3 { display:flex; align-items:center; gap:10px; font-size:15px; font-weight:550; }
+.scenario-limit h3 svg { color:var(--mint); }
+.scenario-limit p { line-height:1.9; font-size:14px; color:var(--muted); margin-top:12px; overflow-wrap:anywhere; }
+.scenario-limit a { color:var(--mint); display:inline-flex; align-items:center; min-height:44px; margin-top:10px; font-size:14px; }
+.scenario-limit a:hover { text-decoration:underline; }
+.waiting .scenario-summary,.waiting #scenario-metrics,.waiting .scenario-table-panel,.waiting .scenario-limit,.waiting #scenario-chart,.waiting .scenario-chart-heading { visibility:hidden; }
+.library-types { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin:28px 0 40px; }
+.library-type-card { padding:24px; text-align:left; border:1px solid var(--line); background:var(--panel); border-radius:10px; }
+.library-type-card>svg { color:var(--mint); width:26px; height:26px; margin-bottom:16px; }
+.library-type-card h2 { font-size:18px; }
+.library-type-card p { font-size:14px; color:var(--muted); margin-top:12px; line-height:1.9; }
+.library-type-card>span { display:block; margin-top:20px; color:var(--mint); font-size:13px; }
+.library-type-card:hover { border-color:var(--mint); background:#142221; }
+.library-subtitle { font-size:19px; margin-bottom:18px; }
+@media(max-width:1200px){.experiment-options{grid-template-columns:repeat(3,minmax(0,1fr))}.scenario-grid{grid-template-columns:minmax(0,1fr) 290px}}
+@media(max-width:950px){.scenario-grid{grid-template-columns:1fr}.scenario-controls{padding:22px}.library-types{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.experiment-picker{padding:16px}.picker-heading{align-items:start}.picker-heading>span{max-width:90px;line-height:1.8}.picker-heading h2{font-size:17px}.experiment-options{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.experiment-options button{min-height:70px;padding:10px 9px;gap:8px}.experiment-options button strong{font-size:13px}.experiment-options button small{font-size:11px}.experiment-options button>svg{width:20px}.scenario-illustration{gap:12px;margin:0 12px}.concept-object{min-width:60px}.concept-object strong{font-size:12px}.concept-symbol,.earth-symbol{width:52px;height:52px}.blackhole-symbol{width:54px;height:54px}.blackhole-symbol i{width:74px;left:-13px;top:14px}.concept-connection small{font-size:10px}.scenario-summary{padding:20px}.scenario-summary h2{font-size:19px}.scenario-question{padding:16px}.scenario-question p{font-size:14px}#scenario-metrics{grid-template-columns:1fr}.library-types{grid-template-columns:1fr}.scenario-chart-heading{padding:18px 18px 0}#scenario-chart{height:250px}.scenario-diagram-note{padding:0 18px 18px}.scenario-table-panel{padding:0 12px}.scenario-table-panel td,.scenario-table-panel th{padding:12px 7px!important;font-size:12px}.scenario-limit{padding:18px}}
 @media(max-width:650px){.main-nav .nav-item{white-space:nowrap;justify-content:center;flex:1;padding:0 3px;font-size:9.5px}.main-nav .nav-item svg{display:none}}
 
 /* Guided exploration: readable text and a small first step for new learners. */
@@ -220,3 +289,54 @@ body .icon-button, body .controls-heading .icon-button { min-width:44px; min-hei
   .learner-result p,.observation-check p,.word-guide dd,.page-description { font-size:16px; }
 }
 .sidebar { overflow-y:auto; }
+
+/* A shared moving solar system, with a separate close view of Earth. */
+.scene-view-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:0 22px 15px; }
+.scene-view-toolbar>span { font-size:11px; color:var(--muted); }
+.scene-view-toolbar>div { display:flex; gap:5px; border:1px solid #364352; border-radius:7px; padding:3px; }
+.scene-view-toolbar button { padding:7px 10px; min-height:44px; border-radius:4px; font-size:12px; color:#c6d3e3; }
+.scene-view-toolbar button[aria-pressed=true] { background:#234536; color:#b2f3d7; }
+.solar-stage { position:relative; background:radial-gradient(ellipse at 60% 45%,#192d3a44,transparent 65%),#0a111b; overflow:hidden; }
+#solar-system-canvas { display:block; width:100%; height:440px; }
+.scene-corner-label { position:absolute; top:12px; left:18px; color:#a4b8ce; font-size:11px; pointer-events:none; }
+.solar-legend { display:flex; flex-wrap:wrap; justify-content:center; gap:10px 15px; padding:15px; background:#0c1420; border-top:1px solid var(--line); }
+.solar-legend>span { display:flex; align-items:center; gap:6px; font-size:11px; color:#becddd; }
+.solar-legend i { width:6px; height:6px; border-radius:50%; }
+.scene-playback { display:flex; align-items:center; gap:10px; padding:12px 18px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:#0d1622; }
+.scene-playback button { flex-shrink:0; min-width:44px; min-height:44px; }
+.scene-playback .play-button { width:38px; height:38px; background:#284c3e; color:#b4f6d9; border-radius:50%; }
+.scene-time { display:flex; align-items:center; gap:13px; margin-left:auto; min-width:0; flex:1; }
+.scene-time label { font:12px var(--mono); color:#c6d5e6; min-width:56px; text-align:right; white-space:nowrap; }
+.scene-time input { min-width:50px; width:100%; height:44px; margin:0; accent-color:var(--mint); cursor:pointer; }
+.scene-events { padding:12px 18px; margin:0; background:#33291b; border-bottom:1px solid #6b5637; color:#f1cca0; font-size:12px; line-height:1.8; }
+.earth-detail { display:flex; align-items:center; gap:12px; padding:13px 20px 12px 8px; background:#12202a; border-bottom:1px solid var(--line); }
+#earth-focus-canvas { display:block; width:160px; height:142px; flex-shrink:0; }
+.earth-detail .section-index { color:#9ed8c7; font-size:11px; letter-spacing:0; }
+.earth-detail h3 { font-size:16px; line-height:1.7; margin:3px 0 5px; font-weight:550; }
+.earth-detail p { color:#a8efd5; font-size:14px; line-height:1.8; }
+.earth-detail small { display:block; margin-top:6px; color:#b3c3d5; font-size:11px; line-height:1.9; }
+.scene-model-note { font-size:12px; color:#bccbdc; padding:17px 20px 8px; line-height:1.9; }
+.scene-projection-note { font-size:11px; color:#a4b4ca; line-height:1.8; padding:0 20px 18px; }
+.scenario-graph-panel { padding:0 22px; margin:20px 0; }
+.scenario-graph-panel>summary { cursor:pointer; color:#c6d8e8; padding:16px 0; min-height:48px; font-size:14px; }
+.scenario-graph-panel .scenario-chart-heading { padding:10px 0; }
+.waiting .solar-stage,.waiting .earth-detail { visibility:hidden; }
+@media(max-width:650px){
+  .scene-view-toolbar { padding:0 15px 12px; flex-direction:column; align-items:stretch; gap:9px; }
+  .scene-view-toolbar>div { width:100%; }
+  .scene-view-toolbar button { flex:1; }
+  #solar-system-canvas { height:360px; }
+  .solar-legend { gap:10px 12px; padding:12px; }
+  .solar-legend>span { font-size:11px; }
+  .scene-playback { padding:10px; gap:4px; flex-wrap:wrap; }
+  .scene-time { flex:1; min-width:125px; gap:6px; }
+  .scene-time label { font-size:11px; min-width:47px; }
+  .earth-detail { padding:12px; gap:7px; }
+  #earth-focus-canvas { width:115px; height:144px; }
+  .earth-detail h3 { font-size:14px; }
+  .earth-detail p { font-size:13px; }
+  .earth-detail small { font-size:11px; }
+  .scene-model-note { font-size:12px; padding:15px 15px 8px; }
+  .scene-projection-note { padding:0 15px 16px; }
+  .scenario-graph-panel { padding:0 15px; }
+}

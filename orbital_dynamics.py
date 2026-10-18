@@ -4,20 +4,21 @@ The central mass is fixed after t=0. No mutual planetary forces or relativity.
 The circular model assumes the new mass always existed, not adiabatic mass loss.
 """
 import math
+from learning_content import explain_for_learners
 
 G = 4 * math.pi**2
 YEAR_DAYS = 365.25
 VELOCITY_KMS = 149_597_870.7 / (YEAR_DAYS * 86400)
 DEFAULTS = {"mass": 0.8, "radius": 1.0, "model": "impulse", "step": 1.0}
 LESSONS = [
-    {"id": "mass", "number": "01", "title": "태양의 질량이 달라진다면?", "tag": "궤도 역학", "minutes": 15,
-     "question": "태양의 질량이 20% 줄면, 지구의 궤도는 어떻게 바뀔까요?", "mass": 0.8, "model": "impulse", "radius": 1},
-    {"id": "escape", "number": "02", "title": "태양계를 벗어나는 경계", "tag": "탈출 조건", "minutes": 20,
-     "question": "질량이 정확히 절반이 되는 순간, 왜 닫힌 궤도가 사라질까요?", "mass": 0.5, "model": "impulse", "radius": 1},
-    {"id": "kepler", "number": "03", "title": "케플러 법칙을 검증하다", "tag": "모델 비교", "minutes": 15,
-     "question": "질량은 그대로 두고 거리를 1.5배 늘리면 공전 주기는 몇 배일까요?", "mass": 1, "model": "circular", "radius": 1.5},
-    {"id": "energy", "number": "04", "title": "계산 결과를 믿어도 될까?", "tag": "수치 해석", "minutes": 20,
-     "question": "시간 간격을 절반으로 줄이면 에너지 보존 오차는 얼마나 줄어들까요?", "mass": 1.5, "model": "impulse", "radius": 1},
+    {"id": "mass", "number": "01", "title": "태양이 가벼워진다면?", "tag": "처음 해 보는 실험", "minutes": 5,
+     "question": "태양의 질량이 20% 줄면, 지구가 도는 길은 어떻게 바뀔까요?", "mass": 0.8, "model": "impulse", "radius": 1},
+    {"id": "escape", "number": "02", "title": "지구가 태양을 떠날 수도 있을까?", "tag": "탈출 알아보기", "minutes": 5,
+     "question": "태양의 질량이 갑자기 절반이 되면, 지구는 계속 태양을 돌 수 있을까요?", "mass": 0.5, "model": "impulse", "radius": 1},
+    {"id": "kepler", "number": "03", "title": "더 멀리서 돌면 얼마나 걸릴까?", "tag": "거리 바꿔 보기", "minutes": 10,
+     "question": "지구가 지금보다 1.5배 멀리서 동그랗게 돈다면, 한 바퀴 도는 시간은 어떻게 될까요?", "mass": 1, "model": "circular", "radius": 1.5},
+    {"id": "energy", "number": "04", "title": "컴퓨터의 계산은 얼마나 정확할까?", "tag": "심화 탐구", "minutes": 15,
+     "question": "컴퓨터가 움직임을 더 잘게 나누어 계산하면, 계산의 오차는 줄어들까요?", "mass": 1.5, "model": "impulse", "radius": 1},
 ]
 
 
@@ -117,5 +118,6 @@ def build_experiment(values=None):
         explanation = f"질량이 바뀌는 순간에도 지구의 속도는 {elements['velocity_kms']:.2f} km/s로 유지됩니다. 새로운 중력에 맞는 원궤도 속도와 달라지면서 이심률 e = {e:.3f}인 궤도가 만들어집니다. 에너지가 음수여서 지구는 태양에 묶여 있습니다."
     return {"settings": settings, "elements": elements, "baseline": baseline, "comparison": comparison,
             "simulation": simulation, "lessons": LESSONS, "explanation": explanation,
+            "learning": explain_for_learners(settings, elements, baseline),
             "threshold": [[m / 100, abs(1 - m / 100) / (m / 100)] for m in range(20, 201, 2)],
             "units": {"distance": "AU", "time": "Julian year (365.25 days)", "mass": "M☉", "G": G}}

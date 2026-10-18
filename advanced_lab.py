@@ -8,7 +8,7 @@ _component = components.declare_component("orbit_lab", path=str(Path(__file__).p
 
 
 def render():
-    st.set_page_config(page_title="ORBIT LAB · 태양계 심화 탐구", page_icon="✳", layout="wide", initial_sidebar_state="collapsed")
+    st.set_page_config(page_title="태양계 WHAT IF 실험실", page_icon="✳", layout="wide", initial_sidebar_state="collapsed")
     st.markdown("""<style>
         html, body, .stApp, [data-testid="stAppViewContainer"] {background:#080c12!important}
         [data-testid="stHeader"], [data-testid="stToolbar"], #MainMenu, footer {display:none}

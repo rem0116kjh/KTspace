@@ -82,6 +82,28 @@ class OrbitalPhysicsTests(unittest.TestCase):
                         json.dumps(data, allow_nan=False)
                         self.assertEqual(len(data['simulation']['trajectory']), len(data['simulation']['diagnostics']))
 
+    def test_learner_explanation_matches_orbit_classification(self):
+        for mass, shape in [(1, 'circle'), (.8, 'ellipse'), (1.5, 'ellipse'), (.5, 'escape'), (.4, 'escape')]:
+            with self.subTest(mass=mass):
+                data = build_experiment({'mass': mass})
+                learning = data['learning']
+                self.assertEqual(learning['shape'], shape)
+                self.assertEqual(learning['mass_percent'], round(mass * 100))
+                if shape == 'escape':
+                    self.assertIsNone(learning['period_days_rounded'])
+                    self.assertIn('한 바퀴 돌지', learning['period_text'])
+                    self.assertNotIn('일이 걸렸다', learning['observation_starter'])
+                else:
+                    self.assertEqual(learning['period_days_rounded'], round(data['elements']['period_days']))
+
+    def test_learner_explanation_respects_circular_initial_speed(self):
+        data = build_experiment({'mass': .5, 'model': 'circular', 'radius': 1.5})
+        self.assertEqual(data['learning']['shape'], 'circle')
+        self.assertEqual(data['learning']['radius_percent'], 150)
+        self.assertIn('맞는 속도', data['learning']['reason'])
+        self.assertNotIn('떠나는', data['learning']['headline'])
+        self.assertIn('출발', data['learning']['model_note'])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -34,6 +34,7 @@ if (framed) document.body.classList.add('embedded');
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 let experiment = null, settings = { mass: .8, radius: 1, model: 'impulse', step: 1 };
 let activeLesson = 'mass', activeView = 'lab', activeTab = 'orbit';
+let learningMode = 'easy', prediction = null;
 let playing = !reducedMotion.matches, speed = 1, simTime = .12, lastFrame = 0;
 let notes = [], completed = [], requestTimer, abortController, toastTimer;
 try { notes = JSON.parse(localStorage.getItem('orbit-notes-v1') || '[]'); completed = JSON.parse(localStorage.getItem('orbit-completed-v1') || '[]'); } catch { /* private browsers keep the current session usable */ }
@@ -60,38 +61,73 @@ async function requestExperiment() {
     receiveExperiment(data);
   } catch (error) { if (error.name !== 'AbortError') { setStatus('계산 연결 확인 필요', false); toast(error.message); $('loading').textContent = '계산 연결을 확인해주세요. 페이지를 새로고침하면 다시 연결합니다.'; } }
 }
-function queueExperiment() { syncControls(); $('save-experiment').disabled = true; clearTimeout(requestTimer); requestTimer = setTimeout(requestExperiment, 180); }
+function queueExperiment() {
+  prediction = null;
+  document.querySelectorAll('[data-prediction]').forEach(el => el.setAttribute('aria-pressed', 'false'));
+  $('prediction-feedback').textContent = '아래에서 내 예상을 고르고, 새 조건의 결과와 비교해 보세요.';
+  syncControls(); $('save-experiment').disabled = true; clearTimeout(requestTimer); requestTimer = setTimeout(requestExperiment, 180);
+}
 function receiveExperiment(data) {
   experiment = data; settings = { ...data.settings }; simTime = Math.min(.12, data.simulation.duration_years);
   playing = !reducedMotion.matches; updatePlayButton();
   $('loading').hidden = true; $('experiment-body').hidden = false; $('save-experiment').disabled = false;
-  setStatus('물리 엔진 정상 작동'); syncControls(); renderResults(); renderLessons(); renderLibrary(); renderNotebook();
+  setStatus('계산 완료'); syncControls(); renderResults(); renderLessons(); renderLibrary(); renderNotebook();
   requestAnimationFrame(() => { drawAll(); setHeight(); });
 }
 function syncControls() {
   $('mass-slider').value = settings.mass; $('radius-slider').value = settings.radius; $('step-select').value = settings.step;
-  $('mass-value').textContent = settings.mass.toFixed(2);
+  $('mass-value').textContent = learningMode === 'easy' ? Math.round(settings.mass * 100) : settings.mass.toFixed(2);
+  $('mass-unit').textContent = learningMode === 'easy' ? '%' : 'M☉';
+  $('mass-slider').setAttribute('aria-valuetext', `현재 태양 질량의 ${Math.round(settings.mass * 100)}퍼센트`);
   const delta = Math.round((settings.mass - 1) * 100);
   $('mass-delta').textContent = delta === 0 ? '현재 태양과 동일' : `현재 대비 ${delta > 0 ? '+' : '−'}${Math.abs(delta)}%`;
   $('radius-value').innerHTML = `${settings.radius.toFixed(2)} <span>AU</span>`;
-  ['mass', 'radius'].forEach(key => { const el = $(`${key}-slider`); const percent = (Number(el.value) - Number(el.min)) / (Number(el.max) - Number(el.min)) * 100; el.style.background = `linear-gradient(to right,#61dec2 ${percent}%,#2c3542 ${percent}%)`; });
+  ['mass', 'radius'].forEach(key => { const el = $(`${key}-slider`); const percent = (Number(el.value) - Number(el.min)) / (Number(el.max) - Number(el.min)) * 100; el.style.backgroundImage = `linear-gradient(to right,#61dec2 ${percent}%,#2c3542 ${percent}%)`; });
   document.querySelectorAll('[data-model]').forEach(el => { const selected = el.dataset.model === settings.model; el.classList.toggle('selected', selected); el.setAttribute('aria-pressed', selected); });
   document.querySelectorAll('[data-mass]').forEach(el => el.classList.toggle('selected', Number(el.dataset.mass) === settings.mass));
+  const extra = settings.radius !== 1 || settings.model !== 'impulse' || settings.step !== 1;
+  $('extra-settings-note').hidden = learningMode !== 'easy' || !extra;
+  $('extra-settings-note').textContent = `다른 조건도 적용 중이에요: 처음 거리 ${fmt(settings.radius)}배 · ${settings.model === 'circular' ? '동그랗게 도는 속도로 출발' : '기존 속도 유지'} · 계산 간격 ${settings.step}일`;
 }
+
+function setLearningMode(mode) {
+  learningMode = mode === 'advanced' ? 'advanced' : 'easy';
+  document.body.classList.toggle('easy-mode', learningMode === 'easy');
+  document.querySelectorAll('[data-learning-mode]').forEach(el => {
+    const selected = el.dataset.learningMode === learningMode;
+    el.classList.toggle('selected', selected);
+    el.setAttribute('aria-pressed', selected);
+  });
+  $('mode-description').textContent = learningMode === 'easy' ? '공식을 몰라도 괜찮아요. 하나씩 바꿔 보세요.' : '이심률, 에너지 오차, 두 모델의 차이까지 살펴볼 수 있어요.';
+  if (learningMode === 'easy') { switchTab('orbit'); $('extra-settings').open = false; }
+  else $('extra-settings').open = true;
+  syncControls();
+  if (experiment) { renderResults(); renderLibrary(); renderNotebook(); }
+  requestAnimationFrame(() => { drawAll(); setHeight(); });
+}
+
 function renderResults() {
   const e = experiment.elements, b = experiment.baseline, s = experiment.simulation;
-  $('orbit-type').textContent = labels[e.state]; $('canvas-eccentricity').textContent = e.eccentricity.toFixed(3);
+  const learning = experiment.learning;
+  $('orbit-type').textContent = learningMode === 'easy' ? learning.shape_text : labels[e.state]; $('canvas-eccentricity').textContent = e.eccentricity.toFixed(3);
+  $('learner-headline').textContent = learning.headline;
+  $('learner-reason').textContent = learning.reason;
+  $('learner-model-note').textContent = learning.model_note;
   $('physics-explanation').textContent = experiment.explanation;
-  $('duration-label').textContent = `${Math.round(s.duration_years * 365.25)} DAYS`;
+  $('duration-label').textContent = `총 ${Math.round(s.duration_years * 365.25)}일`;
   $('solver-label').textContent = `VERLET · Δt ${settings.step}d`;
   const change = e.period_days ? (e.period_days / b.period_days - 1) * 100 : null;
-  const metricData = [
+  const metricData = learningMode === 'easy' ? [
+    ['한 바퀴 도는 시간', e.period_days ? `약 ${fmt(learning.period_days_rounded, 0)}` : '돌아오지 않아요', e.period_days ? '일' : '', escapeHTML(learning.period_comparison), 'clock'],
+    ['지구가 움직이는 길', {circle:'동그란 길',ellipse:'길쭉한 길',escape:'열린 길'}[learning.shape], '', {circle:'이런 길을 원궤도라고 해요.',ellipse:'이런 길을 타원 궤도라고 해요.',escape:'태양을 떠나는 탈출 궤도예요.'}[learning.shape], 'orbit'],
+    ['계속 태양을 돌까요?', e.bound ? '네, 계속 돌아요' : '아니요, 멀어져요', '', e.bound ? '태양의 중력이 지구를 붙잡고 있어요.' : '이 속도의 지구를 붙잡기 어려워요.', 'target'],
+  ] : [
     ['공전 주기', e.period_days ? fmt(e.period_days, 1) : '—', e.period_days ? '일' : '', e.period_days ? `<span class="positive">${change >= 0 ? '↗ +' : '↘ '}${fmt(change, 1)}%</span> 동일 거리 기준 대비` : '<span class="amber">열린 궤도 · 주기 없음</span>', 'clock'],
     ['궤도 이심률', fmt(e.eccentricity, 3), 'e', e.eccentricity < 1 ? '0은 원 · 1은 탈출 경계' : '<span class="amber">e ≥ 1 · 탈출 조건 충족</span>', 'orbit'],
     ['궤도 상태', labels[e.state], '', `<span class="${e.bound ? 'positive' : 'amber'}">${e.bound ? '● 중력에 묶인 상태' : '↗ 열린 탈출 궤도'}</span>`, 'target'],
     ['에너지 보존 오차', s.max_energy_error_pct < .0001 ? s.max_energy_error_pct.toExponential(1) : fmt(s.max_energy_error_pct, 4), '%', `전 ${s.steps.toLocaleString()}단계 중 최대 · Δt ${settings.step}일`, 'shield'],
   ];
-  $('metrics-grid').innerHTML = metricData.map((m,i) => `<article class="metric-card"><div class="metric-top"><span>${m[0]}</span>${svg(m[4])}</div><div class="metric-value ${i === 2 ? 'metric-state' : ''}">${m[1]}<small>${m[2]}</small></div><div class="metric-detail">${m[3]}</div></article>`).join('');
+  $('metrics-grid').innerHTML = metricData.map((m,i) => `<article class="metric-card"><div class="metric-top"><span>${m[0]}</span>${svg(m[4])}</div><div class="metric-value ${i === 2 || (learningMode === 'easy' && (i !== 0 || !e.bound)) ? 'metric-state' : ''}">${m[1]}<small>${m[2]}</small></div><div class="metric-detail">${m[3]}</div></article>`).join('');
   const c = experiment.comparison;
   const modelName = settings.model === 'impulse' ? '순간 질량 변화' : '원궤도 비교';
   const otherName = settings.model === 'impulse' ? '원궤도 비교' : '순간 질량 변화';
@@ -107,12 +143,13 @@ function switchView(view) {
   activeView = view;
   document.querySelectorAll('.view').forEach(el => { el.hidden = el.id !== `view-${view}`; el.classList.toggle('active', !el.hidden); });
   document.querySelectorAll('[data-view]').forEach(el => { el.classList.toggle('active', el.dataset.view === view); if (el.dataset.view === view) el.setAttribute('aria-current','page'); else el.removeAttribute('aria-current'); });
-  $('breadcrumb-current').textContent = { lab: '태양계 역학', course: '탐구 커리큘럼', library: '시나리오 라이브러리', notebook: '나의 탐구 노트' }[view];
+  $('breadcrumb-current').textContent = { lab: '태양과 지구', course: '탐구 순서', library: '실험 모음', notebook: '내 실험 노트' }[view];
   if (view === 'notebook') renderNotebook();
   requestAnimationFrame(() => { drawAll(); setHeight(); });
   window.scrollTo({ top: 0, behavior: reducedMotion.matches ? 'instant' : 'smooth' });
 }
 function switchTab(tab) {
+  if (learningMode === 'easy' && tab !== 'orbit') tab = 'orbit';
   activeTab = tab;
   document.querySelectorAll('[data-tab]').forEach(el => { const active = el.dataset.tab === tab; el.classList.toggle('active',active); el.setAttribute('aria-selected',active); el.tabIndex = active ? 0 : -1; });
   ['orbit','energy','compare'].forEach(name => { $(`panel-${name}`).hidden = name !== tab; });
@@ -120,15 +157,16 @@ function switchTab(tab) {
 }
 function selectLesson(id) {
   const lesson = experiment.lessons.find(l => l.id === id);
-  activeLesson = id; $('mission-question').textContent = lesson.question; $('experiment-title').innerHTML = `${{mass:'태양 질량 변화 실험',escape:'탈출 임계값 탐구',kepler:'케플러 법칙 검증',energy:'에너지 보존 검증'}[id]}<span class="live-dot"></span>`;
-  document.querySelector('.panel-heading .section-index').textContent = `EXPERIMENT ${lesson.number}`;
+  activeLesson = id; $('mission-question').textContent = lesson.question; $('experiment-title').innerHTML = `${{mass:'태양을 바꾸면 지구는?',escape:'지구가 태양을 떠날까요?',kepler:'더 멀리서 돌면 얼마나 걸릴까요?',energy:'계산은 얼마나 정확할까요?'}[id]}<span class="live-dot"></span>`;
+  document.querySelector('.panel-heading .section-index').textContent = `실험 ${lesson.number}`;
   settings = { mass: lesson.mass, radius: lesson.radius, model: lesson.model, step: 1 };
-  switchView('lab'); switchTab(id === 'energy' ? 'energy' : id === 'kepler' ? 'compare' : 'orbit'); renderLessons(); queueExperiment();
+  if (id === 'energy' && learningMode === 'easy') { setLearningMode('advanced'); toast('네 번째 실험에서는 심화 탐구로 계산의 정확도를 살펴봐요.'); }
+  switchView('lab'); switchTab(id === 'energy' ? 'energy' : id === 'kepler' && learningMode === 'advanced' ? 'compare' : 'orbit'); renderLessons(); queueExperiment();
 }
 function renderLessons() {
   if (!experiment) return;
-  $('lesson-nav').innerHTML = experiment.lessons.map(l => `<button data-lesson="${l.id}" class="${activeLesson === l.id ? 'active ' : ''}${completed.includes(l.id) ? 'completed' : ''}"><span class="lesson-circle">${completed.includes(l.id) ? '✓' : l.number}</span>${{mass:'질량과 궤도의 관계',escape:'태양계를 벗어나는 경계',kepler:'케플러 법칙 검증',energy:'에너지 보존과 오차'}[l.id]}${activeLesson === l.id ? '<span>›</span>' : ''}</button>`).join('');
-  $('lesson-cards').innerHTML = experiment.lessons.map(l => `<article class="lesson-card"><span class="section-index">EXPLORATION ${l.number} · ${l.tag}</span><h2>${l.title}</h2><p>${l.question}</p><div class="lesson-card-footer"><span>${completed.includes(l.id) ? '✓ 탐구 기록 완료' : `${l.minutes}분 · 가설과 관찰`}</span><button class="button" data-lesson="${l.id}">탐구 시작하기 <span>→</span></button></div></article>`).join('');
+  $('lesson-nav').innerHTML = experiment.lessons.map(l => `<button data-lesson="${l.id}" class="${activeLesson === l.id ? 'active ' : ''}${completed.includes(l.id) ? 'completed' : ''}"><span class="lesson-circle">${completed.includes(l.id) ? '✓' : l.number}</span>${{mass:'태양이 가벼워지면?',escape:'지구가 태양을 떠날까?',kepler:'더 멀리서 돈다면?',energy:'계산은 얼마나 정확할까?'}[l.id]}${activeLesson === l.id ? '<span>›</span>' : ''}</button>`).join('');
+  $('lesson-cards').innerHTML = experiment.lessons.map(l => `<article class="lesson-card"><span class="section-index">실험 ${l.number} · ${l.tag}</span><h2>${l.title}</h2><p>${l.question}</p><div class="lesson-card-footer"><span>${completed.includes(l.id) ? '✓ 노트에 기록했어요' : `약 ${l.minutes}분 · 예상하고 관찰해요`}</span><button class="button" data-lesson="${l.id}">${l.id === 'energy' ? '심화 탐구 해 보기' : '이 실험 해 보기'} <span>→</span></button></div></article>`).join('');
   const count = experiment.lessons.filter(l => completed.includes(l.id)).length;
   $('course-progress-copy').textContent = `${count} / 4 탐구 완료`; $('course-progress-percent').textContent = `${count * 25}%`; $('course-progress-bar').style.width = `${count * 25}%`; $('note-count').textContent = notes.length;
 }
@@ -139,11 +177,11 @@ const scenarios = [
 ];
 let libraryFilter = 'all';
 function renderLibrary() {
-  $('library-cards').innerHTML = scenarios.map((s,i) => ({s,i})).filter(({s}) => libraryFilter === 'all' || s[4] === libraryFilter).map(({s,i}) => `<button class="library-card" data-scenario="${i}"><div class="library-orbit">${svg(s[4] === 'escape' ? 'spark' : 'orbit')}</div><span class="section-index">SCENARIO ${String(i+1).padStart(2,'0')}</span><h2>${s[0]}</h2><p>${s[1].toFixed(2)} M☉ · ${s[2].toFixed(2)} AU · ${s[3] === 'impulse' ? '순간 변화' : '원궤도'}</p><span>이 조건으로 실험하기 <span>↗</span></span></button>`).join('');
+  $('library-cards').innerHTML = scenarios.map((s,i) => ({s,i})).filter(({s}) => libraryFilter === 'all' || s[4] === libraryFilter).map(({s,i}) => `<button class="library-card" data-scenario="${i}"><div class="library-orbit">${svg(s[4] === 'escape' ? 'spark' : 'orbit')}</div><span class="section-index">만약에? ${String(i+1).padStart(2,'0')}</span><h2>${s[0]}</h2><p>태양의 질량 ${Math.round(s[1]*100)}% · 처음 거리 ${Math.round(s[2]*100)}%<br>${s[3] === 'impulse' ? '태양의 질량만 갑자기 바꾸기' : '처음부터 동그랗게 돌게 하기'}</p><span>이 실험 해 보기 <span>↗</span></span></button>`).join('');
 }
 function renderNotebook() {
   if (!notes.length) { $('notebook-list').innerHTML = `<div class="empty-notebook"><span>${svg('book')}</span><h2>첫 번째 발견을 기다리고 있어요.</h2><p>실험실에서 조건을 바꾸고, 관찰한 내용을 노트에 저장해 보세요.</p><button class="button primary" data-view="lab">실험실로 돌아가기 <span>→</span></button></div>`; return; }
-  $('notebook-list').innerHTML = [...notes].reverse().map(n => `<article class="note-card"><div class="note-card-head"><h2>${escapeHTML(n.title)}</h2><time>${new Date(n.createdAt).toLocaleString('ko-KR')}</time></div><p class="note-settings">M = ${fmt(n.settings.mass)} M☉ · r₀ = ${fmt(n.settings.radius)} AU · ${n.settings.model === 'impulse' ? '순간 변화' : '원궤도'} · Δt ${n.settings.step}일</p>${n.hypothesis ? `<h3>나의 가설</h3><p>${escapeHTML(n.hypothesis)}</p>` : ''}<h3>관찰과 설명</h3><p>${escapeHTML(n.observation)}</p><h3>저장 시 계산 결과</h3><p>e = ${fmt(n.elements.eccentricity,3)} · ${labels[n.elements.state] || ''} · 공전 주기 ${n.elements.period_days ? fmt(n.elements.period_days,1)+'일' : '정의 안 됨'}</p><div class="note-card-footer"><button class="text-button" data-restore="${escapeHTML(n.id)}">조건 다시 불러오기 →</button><button class="text-button" data-note-csv="${escapeHTML(n.id)}">CSV 저장</button><button class="text-button delete-note" data-delete="${escapeHTML(n.id)}">기록 삭제</button></div></article>`).join('');
+  $('notebook-list').innerHTML = [...notes].reverse().map(n => `<article class="note-card"><div class="note-card-head"><h2>${escapeHTML(n.title)}</h2><time>${new Date(n.createdAt).toLocaleString('ko-KR')}</time></div><p class="note-settings">태양의 질량: 현재의 ${Math.round(n.settings.mass*100)}% · 처음 거리: 현재 지구 거리의 ${Math.round(n.settings.radius*100)}%</p>${n.hypothesis ? `<h3>내 예상 (가설)</h3><p>${escapeHTML(n.hypothesis)}</p>` : ''}<h3>관찰한 것과 그 이유</h3><p>${escapeHTML(n.observation)}</p><h3>저장했을 때의 결과</h3><p>${labels[n.elements.state] || ''} · ${n.elements.period_days ? `한 바퀴 도는 데 약 ${fmt(Math.round(n.elements.period_days),0)}일` : '태양을 한 바퀴 돌지 않는 열린 길'}</p><details class="note-science"><summary>자세한 계산 조건 보기</summary><p>e = ${fmt(n.elements.eccentricity,3)} · ${n.settings.model === 'impulse' ? '순간 질량 변화' : '원궤도 비교'} · 계산 간격 ${n.settings.step}일</p></details><div class="note-card-footer"><button class="text-button" data-restore="${escapeHTML(n.id)}">이 실험 다시 하기 →</button><button class="text-button" data-note-csv="${escapeHTML(n.id)}">결과 표 받기</button><button class="text-button delete-note" data-delete="${escapeHTML(n.id)}">기록 삭제</button></div></article>`).join('');
 }
 function storeNotes() {
   localStorage.setItem('orbit-notes-v1', JSON.stringify(notes));
@@ -188,25 +226,25 @@ function drawOrbit() {
   // A small original-orbit marker provides the baseline comparison at equal t.
   const baselineAngle=2*Math.PI*simTime/Math.sqrt(radius**3);
   const bx=px(radius*Math.cos(baselineAngle)),by=py(radius*Math.sin(baselineAngle));
-  ctx.fillStyle='#91a1b866';ctx.beginPath();ctx.arc(bx,by,3,0,Math.PI*2);ctx.fill();
+  if(learningMode==='advanced'){ctx.fillStyle='#91a1b866';ctx.beginPath();ctx.arc(bx,by,3,0,Math.PI*2);ctx.fill();}
   ctx.font='8px -apple-system,sans-serif';ctx.fillStyle='#8291a5';
-  if(w>400)ctx.fillText('기준 지구',Math.min(w-50,bx+9),Math.max(55,by-6));
+  if(w>400&&learningMode==='advanced')ctx.fillText('기준 지구',Math.min(w-50,bx+9),Math.max(55,by-6));
   ctx.beginPath();trajectory.forEach((p,i)=>i?ctx.lineTo(px(p[1]),py(p[2])):ctx.moveTo(px(p[1]),py(p[2])));ctx.strokeStyle='#61dec25e';ctx.lineWidth=1.2;ctx.stroke();
   // Highlight only the elapsed segment, preserving physical time spacing.
   ctx.beginPath();let started=false;trajectory.forEach(p=>{if(p[0]<=simTime){started?ctx.lineTo(px(p[1]),py(p[2])):ctx.moveTo(px(p[1]),py(p[2]));started=true;}});ctx.strokeStyle='#76f0d5';ctx.lineWidth=1.65;ctx.shadowColor='#61dec233';ctx.shadowBlur=6;ctx.stroke();ctx.shadowBlur=0;
   const sunGlow=ctx.createRadialGradient(centerX,centerY,0,centerX,centerY,47);sunGlow.addColorStop(0,'#ffbf702e');sunGlow.addColorStop(.4,'#ff9f2e12');sunGlow.addColorStop(1,'#ff9f2e00');ctx.fillStyle=sunGlow;ctx.beginPath();ctx.arc(centerX,centerY,47,0,Math.PI*2);ctx.fill();
   const sunR=11+Math.sqrt(settings.mass)*3;const sun=ctx.createRadialGradient(centerX-4,centerY-4,0,centerX,centerY,sunR);sun.addColorStop(0,'#ffe6a5');sun.addColorStop(.45,'#ffc567');sun.addColorStop(1,'#ec813b');ctx.fillStyle=sun;ctx.shadowColor='#ffae5d88';ctx.shadowBlur=16;ctx.beginPath();ctx.arc(centerX,centerY,sunR,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-  ctx.font='9px -apple-system,sans-serif';ctx.fillStyle='#d9b385';ctx.textAlign='center';ctx.fillText('태양',centerX,centerY+sunR+17);ctx.fillStyle='#8b7865';ctx.font='7px monospace';ctx.fillText(`${settings.mass.toFixed(2)} M☉`,centerX,centerY+sunR+29);
+  ctx.font=`${learningMode==='easy'?12:9}px -apple-system,sans-serif`;ctx.fillStyle='#d9b385';ctx.textAlign='center';ctx.fillText('태양',centerX,centerY+sunR+17);ctx.fillStyle='#8b7865';ctx.font='7px monospace';if(learningMode==='advanced')ctx.fillText(`${settings.mass.toFixed(2)} M☉`,centerX,centerY+sunR+29);
   let index=trajectory.findIndex(p=>p[0]>=simTime);if(index<0)index=trajectory.length-1;const p1=trajectory[Math.max(0,index-1)],p2=trajectory[index];const t=p2[0]===p1[0]?0:(simTime-p1[0])/(p2[0]-p1[0]);
   const x=px(p1[1]+(p2[1]-p1[1])*t),y=py(p1[2]+(p2[2]-p1[2])*t);
   const earth=ctx.createRadialGradient(x-2,y-2,0,x,y,6);earth.addColorStop(0,'#c0f7ed');earth.addColorStop(.55,'#61cbbd');earth.addColorStop(1,'#357f94');ctx.fillStyle=earth;ctx.shadowColor='#61dec288';ctx.shadowBlur=16;ctx.beginPath();ctx.arc(x,y,5.5,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-  ctx.strokeStyle='#61dec254';ctx.lineWidth=.6;ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);ctx.stroke();ctx.textAlign='left';ctx.font='9px -apple-system,sans-serif';ctx.fillStyle='#b7e7df';ctx.fillText('지구',Math.min(w-36,x+14),Math.max(50,y-7));
+  ctx.strokeStyle='#61dec254';ctx.lineWidth=.6;ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);ctx.stroke();ctx.textAlign='left';ctx.font=`${learningMode==='easy'?12:9}px -apple-system,sans-serif`;ctx.fillStyle='#b7e7df';ctx.fillText('지구',Math.min(w-36,x+14),Math.max(50,y-7));
   ctx.fillStyle='#5c6d82';ctx.font='7px monospace';ctx.fillText('+X',w-23,Math.min(h-38,centerY-6));ctx.fillText('+Y',Math.min(w-22,centerX+7),43);
   // Scale bar is always one physical AU in the selected view.
   let bar=1;if(scale>120)bar=.5;if(scale<35)bar=2;
   $('scale-mark').style.width=`${scale*bar}px`;$('scale-label').textContent=`${bar} AU`;
   ctx.restore();
-  $('simulation-day').textContent=`DAY ${String(Math.floor(simTime*365.25)).padStart(3,'0')}`;
+  $('simulation-day').textContent=`${Math.floor(simTime*365.25)}일째`;
   $('timeline-progress').style.width=`${simTime/experiment.simulation.duration_years*100}%`;
 }
 function drawEnergy() {
@@ -248,6 +286,14 @@ $('step-select').addEventListener('change',event=>{settings.step=Number(event.ta
 document.addEventListener('click',event=>{
   const target=event.target.closest('button,a');if(!target)return;
   if(target.dataset.view){event.preventDefault();switchView(target.dataset.view);}
+  if(target.dataset.learningMode)setLearningMode(target.dataset.learningMode);
+  if(target.dataset.prediction && experiment && !$('save-experiment').disabled){
+    prediction = target.dataset.prediction;
+    document.querySelectorAll('[data-prediction]').forEach(el => el.setAttribute('aria-pressed', el === target));
+    const matched = prediction === experiment.learning.shape;
+    $('prediction-feedback').textContent = `${matched ? '내 예상과 같네요! ' : '예상과 달라도 괜찮아요. '}지금 조건에서는 ${experiment.learning.headline} ${experiment.learning.period_text}${experiment.elements.bound ? ' 만에 한 바퀴 돌아요.' : '.'}`;
+    setHeight();
+  }
   if(target.dataset.tab)switchTab(target.dataset.tab);
   if(target.dataset.model){settings.model=target.dataset.model;queueExperiment();}
   if(target.dataset.mass){settings.mass=Number(target.dataset.mass);queueExperiment();}
@@ -269,7 +315,20 @@ $('speed-button').onclick=()=>{speed=({1:2,2:4,4:.5,.5:1})[speed];$('speed-butto
 $('reset-view').onclick=()=>{simTime=0;drawOrbit();};
 $('reset-settings').onclick=()=>{settings={mass:.8,radius:1,model:'impulse',step:1};queueExperiment();toast('실험 조건을 초기값으로 되돌렸습니다.');};
 $('fullscreen-button').onclick=async()=>{try{const panel=document.querySelector('.visualization-panel');if(document.fullscreenElement)await document.exitFullscreen();else await panel.requestFullscreen();setTimeout(drawAll,100);}catch{toast('브라우저의 전체 화면 권한을 확인해주세요.');}};
-$('save-experiment').onclick=()=>{$('save-dialog').showModal();};
+$('save-experiment').onclick=()=>{
+  if (prediction && !$('note-hypothesis').value.trim()) $('note-hypothesis').value = `지구가 ${{circle:'동그란 길을 따라 돌',ellipse:'길쭉한 길을 따라 돌',escape:'태양을 떠나는 길로 움직일'}[prediction]} 것 같다.`;
+  $('save-dialog').showModal();
+};
+$('observation-starter').onclick=()=>{
+  if (!experiment) return;
+  const field = $('note-observation'), starter = experiment.learning.observation_starter;
+  if (!field.value.includes(starter)) field.value += `${field.value.trim() ? '\n' : ''}${starter}\n내가 생각한 이유는 `;
+  field.setCustomValidity(''); field.focus();
+};
+$('start-guided-experiment').addEventListener('click',()=>{
+  setLearningMode('easy'); selectLesson('mass');
+  settings = {mass:1,radius:1,model:'impulse',step:1}; queueExperiment();
+});
 $('save-form').onsubmit=event=>{
   event.preventDefault();if(!experiment)return;
   const observation=$('note-observation').value.trim();if(!observation){$('note-observation').setCustomValidity('관찰한 내용을 입력해주세요.');$('note-observation').reportValidity();return;}
@@ -281,12 +340,14 @@ $('save-form').onsubmit=event=>{
 $('note-observation').addEventListener('input',()=>{$('note-observation').setCustomValidity('');});
 $('export-csv').onclick=()=>experiment&&exportCSV();
 $('export-notes').onclick=()=>{download(JSON.stringify({version:1,exportedAt:new Date().toISOString(),notes,completed},null,2),'orbit-lab-notes.json','application/json');toast('탐구 노트를 JSON 파일로 백업했습니다.');};
-document.querySelector('.tabs').addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const tabs=['orbit','energy','compare'];let i=tabs.indexOf(activeTab);i=event.key==='Home'?0:event.key==='End'?2:(i+(event.key==='ArrowRight'?1:2))%3;switchTab(tabs[i]);$(`tab-${tabs[i]}`).focus();});
+document.querySelector('.tabs').addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const tabs=learningMode==='easy'?['orbit']:['orbit','energy','compare'];let i=tabs.indexOf(activeTab);i=event.key==='Home'?0:event.key==='End'?tabs.length-1:(i+(event.key==='ArrowRight'?1:tabs.length-1))%tabs.length;switchTab(tabs[i]);$(`tab-${tabs[i]}`).focus();});
 document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();}}));
 window.addEventListener('resize',()=>{drawAll();setHeight();});
 document.addEventListener('fullscreenchange',()=>setTimeout(drawAll,80));
 reducedMotion.addEventListener('change',event=>{if(event.matches){playing=false;updatePlayButton();}});
 new ResizeObserver(()=>setHeight()).observe(document.querySelector('.app-shell'));
+document.querySelectorAll('details').forEach(el=>el.addEventListener('toggle',()=>{drawAll();setHeight();}));
+setLearningMode('easy');
 
 if(framed){
   window.addEventListener('message',event=>{if(event.source===window.parent&&event.data?.type==='streamlit:render'&&event.data.args?.experiment)receiveExperiment(event.data.args.experiment);});

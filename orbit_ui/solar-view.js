@@ -1,7 +1,7 @@
 'use strict';
 // Coordinates come from Python; only the projection and drawing happen here.
 const SolarView = (() => {
-  let scene = null, time = 0, seconds = 0, scope = 'all';
+  let scene = null, time = 0, seconds = 0, scope = 'all', geometry = null, orderedBodies = [];
   const byId = id => document.getElementById(id);
   const clamp = (n,a,b) => Math.min(b,Math.max(a,n));
   function pointAt(body,t) {
@@ -13,8 +13,9 @@ const SolarView = (() => {
     return [a[1]+(b[1]-a[1])*f,a[2]+(b[2]-a[2])*f];
   }
   function receive(data) {
-    scene = data.scene; time=0; seconds=0;
+    scene = data.scene; time=0; seconds=0; geometry=null;
     if(!scene) return;
+    orderedBodies=[...scene.bodies].sort((a,b)=>Number(b.id==='earth')-Number(a.id==='earth'));
     byId('solar-legend').innerHTML=scene.bodies.map(b=>`<span><i style="background:${b.color}"></i>${escapeHTML(b.name)}</span>`).join('');
     byId('scene-model-note').textContent=scene.note;
     byId('scene-detail-note').textContent=scene.detail;
@@ -52,11 +53,17 @@ const SolarView = (() => {
     const {ctx,w,h}=info,extent=scope==='all'?35:5.8,pad=w<400?30:40,R=Math.min(w/2-pad,h/2-28),cx=w/2,cy=h/2;
     // Monotonic radial compression preserves direction, not physical distances.
     const project=(x,y)=>{const r=Math.hypot(x,y),k=r?R*Math.log1p(r/.4)/Math.log1p(extent/.4)/r:0;return[cx+x*k,cy-y*k];};
+    // A received trajectory is immutable. Reproject only when its view changes.
+    // Live body positions still interpolate physical coordinates before projection.
+    if(!geometry||geometry.w!==w||geometry.h!==h||geometry.scope!==scope){
+      geometry={w,h,scope,paths:new Map()};
+      if(scene.source)scene.bodies.forEach(b=>geometry.paths.set(b.id,b.trajectory.map(p=>project(p[1],p[2]))));
+    }
     for(let i=0;i<110;i++){const x=((Math.sin(i*54.31+4)*43758.54)%1+1)%1*w,y=((Math.sin(i*12.91+8)*27182.31)%1+1)%1*h;ctx.fillStyle=i%8?'#7491ba33':'#a4bbd755';ctx.beginPath();ctx.arc(x,y,i%8?.5:.9,0,Math.PI*2);ctx.fill();}
     ctx.save();ctx.beginPath();ctx.rect(7,18,w-14,h-25);ctx.clip();
     scene.bodies.forEach(b=>{const r=project(b.radius_au,0)[0]-cx;ctx.setLineDash([3,5]);ctx.strokeStyle=b.id==='earth'?'#8eafa855':'#4b5f773c';ctx.lineWidth=1;ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();});ctx.setLineDash([]);
     if(scene.focus.kind==='earth_distance'){ctx.strokeStyle='#b6c0ce66';ctx.setLineDash([2,5]);ctx.beginPath();ctx.arc(cx,cy,project(1,0)[0]-cx,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}
-    if(scene.source)scene.bodies.forEach(b=>{ctx.beginPath();b.trajectory.forEach((p,i)=>{const q=project(p[1],p[2]);i?ctx.lineTo(...q):ctx.moveTo(...q);});ctx.strokeStyle=b.id==='earth'?'#76e6cf55':`${b.color}26`;ctx.lineWidth=b.id==='earth'?1.5:.9;ctx.stroke();ctx.beginPath();b.trajectory.filter(p=>p[0]<=time).forEach((p,i)=>{const q=project(p[1],p[2]);i?ctx.lineTo(...q):ctx.moveTo(...q);});ctx.strokeStyle=b.id==='earth'?'#8bf9df':`${b.color}aa`;ctx.lineWidth=b.id==='earth'?2:1;ctx.stroke();});
+    if(scene.source)scene.bodies.forEach(b=>{const points=geometry.paths.get(b.id);ctx.beginPath();points.forEach((q,i)=>i?ctx.lineTo(...q):ctx.moveTo(...q));ctx.strokeStyle=b.id==='earth'?'#76e6cf55':`${b.color}26`;ctx.lineWidth=b.id==='earth'?1.5:.9;ctx.stroke();ctx.beginPath();for(let i=0;i<points.length&&b.trajectory[i][0]<=time;i++){const q=points[i];i?ctx.lineTo(...q):ctx.moveTo(...q);}ctx.strokeStyle=b.id==='earth'?'#8bf9df':`${b.color}aa`;ctx.lineWidth=b.id==='earth'?2:1;ctx.stroke();});
     const earth=scene.bodies.find(b=>b.id==='earth'),earthPoint=pointAt(earth,time),ep=project(...earthPoint);
     const sourcePoint=scene.source?project(scene.source.x,scene.source.y):null;
     if(['sirius','solar_luminosity','earth_distance','earth_albedo','atmosphere_loss'].includes(scene.focus.kind)){
@@ -75,7 +82,7 @@ const SolarView = (() => {
       candidates.sort((a,b)=>cost(a)-cost(b));const [lx,ly]=candidates[0];
       labelBoxes.push([lx,ly-12,tw,15]);ctx.strokeStyle='#a3b8ca44';ctx.lineWidth=.6;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(lx+tw/2,ly-5);ctx.stroke();ctx.fillStyle=color;ctx.textAlign='left';ctx.fillText(text,lx,ly);
     }
-    [...scene.bodies].sort((a,b)=>Number(b.id==='earth')-Number(a.id==='earth')).forEach(b=>{const [x,y]=project(...pointAt(b,time));if(x<6||x>w-6||y<18||y>h-8)return;const ended=b.status!=='complete'&&time>=b.end_years;ctx.globalAlpha=ended ? .5 : 1;sphere(ctx,x,y,b.size*(w<400?.8:1),b.color,b.id==='saturn');if(b.id==='earth'){ctx.strokeStyle='#7cf2d1';ctx.lineWidth=1;ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);ctx.stroke();}ctx.font=`${b.id==='earth'?12:11}px -apple-system,sans-serif`;planetLabel(b.name+(ended?' ×':''),x,y,b.id==='earth'?'#b9f9e7':'#aebbd1');if(ended){ctx.strokeStyle='#f0b66c';ctx.beginPath();ctx.moveTo(x-4,y-4);ctx.lineTo(x+4,y+4);ctx.moveTo(x+4,y-4);ctx.lineTo(x-4,y+4);ctx.stroke();}ctx.globalAlpha=1;});
+    orderedBodies.forEach(b=>{const [x,y]=project(...pointAt(b,time));if(x<6||x>w-6||y<18||y>h-8)return;const ended=b.status!=='complete'&&time>=b.end_years;ctx.globalAlpha=ended ? .5 : 1;sphere(ctx,x,y,b.size*(w<400?.8:1),b.color,b.id==='saturn');if(b.id==='earth'){ctx.strokeStyle='#7cf2d1';ctx.lineWidth=1;ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);ctx.stroke();}ctx.font=`${b.id==='earth'?12:11}px -apple-system,sans-serif`;planetLabel(b.name+(ended?' ×':''),x,y,b.id==='earth'?'#b9f9e7':'#aebbd1');if(ended){ctx.strokeStyle='#f0b66c';ctx.beginPath();ctx.moveTo(x-4,y-4);ctx.lineTo(x+4,y+4);ctx.moveTo(x+4,y-4);ctx.lineTo(x-4,y+4);ctx.stroke();}ctx.globalAlpha=1;});
     ctx.restore();
   }
   function drawEarth(){

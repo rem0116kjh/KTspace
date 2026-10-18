@@ -419,5 +419,3 @@ class SimulationEngine:
                 'primary_risk': '우주선 증가, 대기 손실 가속' if factor < 0.5 else '정상 범위',
             },
         }
-
-

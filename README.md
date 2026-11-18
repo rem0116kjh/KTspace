@@ -1,6 +1,6 @@
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://ktspace.streamlit.app)
 
-#전국학생AI대회 수상작
+# 전국학생AI대회 수상작
 전국학생AI대회 교과연계 AI 탐구 부문에서 **은상**을 수상한 뒤, 부족했던 기능을 보완하여 GitHub에 공개했습니다.
 
 # ORBIT LAB · 태양계 WHAT IF 실험실
